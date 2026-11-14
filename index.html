@@ -64,8 +64,11 @@ body[data-v=detail]{--bgo:.85}
 .hb svg{width:1.2rem;height:1.2rem;fill:currentColor}
 
 /* hàng thẻ ngang */
-#rowsWrap{position:absolute;left:0;right:0;bottom:0;height:20rem;overflow:hidden;scroll-behavior:smooth;background:rgba(255,255,255,.06);border-top:1px solid var(--line);border-radius:2.2rem 2.2rem 0 0;-webkit-backdrop-filter:blur(1.6rem) saturate(1.5);backdrop-filter:blur(1.6rem) saturate(1.5)}
-.row{height:17.5rem}
+#rowsWrap{position:absolute;left:0;right:0;bottom:0;height:20rem;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;scroll-snap-type:y proximity;scroll-behavior:smooth;background:rgba(255,255,255,.06);border-top:1px solid var(--line);border-radius:2.2rem 2.2rem 0 0;-webkit-backdrop-filter:blur(1.6rem) saturate(1.5);backdrop-filter:blur(1.6rem) saturate(1.5)}
+#rowsWrap::-webkit-scrollbar{display:none}
+.row{height:17.5rem;scroll-snap-align:start}
+.track{overflow-x:auto!important;scrollbar-width:none;overscroll-behavior-x:contain}
+.track::-webkit-scrollbar{display:none}
 h2{font-size:1.35rem;margin:.4rem var(--safe-x) 0;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7)}
 #list h2,#detail h2{margin-left:.3rem}
 .track{position:relative;display:flex;gap:1.2rem;overflow:hidden;padding:1rem var(--safe-x) 1rem;scroll-behavior:smooth}
@@ -808,6 +811,11 @@ function route(el){
   if(el.dataset.ei!==undefined){EI=+el.dataset.ei;play();return true;}
   return false;
 }
+document.addEventListener('wheel',e=>{
+  const h=$('#home');if(h.hidden||!$('#player').hidden||!$('#kb').hidden||!$('#auth').hidden)return;
+  const w=$('#rowsWrap');if(w.contains(e.target))return;
+  w.scrollTop+=e.deltaY;
+},{passive:true});
 document.addEventListener('click',e=>{const t=e.target.closest('[tabindex]');if(t)route(t);});
 
 /* ---------- điều hướng bằng remote ---------- */
