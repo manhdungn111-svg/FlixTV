@@ -203,6 +203,14 @@ h2{font-size:1.35rem;margin:.4rem var(--safe-x) 0;font-weight:700;text-shadow:0 
 #kbin{width:min(46rem,100%);padding:1rem 1.3rem;border-radius:1.2rem;border:1px solid var(--line);background:var(--glass);color:#fff;font:inherit;font-size:1.2rem;outline:none;margin-bottom:1rem}
 #kbin:focus{border-color:#4da3ff}
 .tvscan{width:100%;border-radius:1rem;margin-top:.8rem;background:#000;max-height:14rem;object-fit:cover}
+#upd{position:fixed;inset:0;z-index:40;background:rgba(6,8,12,.78);display:flex;align-items:center;justify-content:center;padding:var(--safe-y) var(--safe-x)}
+#updc{width:min(46rem,100%);max-height:100%;overflow:auto;padding:2rem 2.4rem;border-radius:2rem;background:rgba(30,36,50,.96)}
+#updh{display:flex;align-items:center;gap:.8rem}
+#updv{display:inline-block;padding:.15rem .9rem;border-radius:3rem;background:var(--grad);font-weight:800;font-size:1.05rem}
+#updt{font-size:1.9rem;font-weight:800;margin:.7rem 0 .6rem}
+#updl{margin:0 0 1rem;padding-left:1.3rem;font-size:1.1rem;line-height:1.55;color:var(--mute)}
+#updl li{margin:.2rem 0}
+#updf{font-size:.95rem;color:var(--mute);margin-bottom:1rem;word-break:break-all}
 /* ===== Điện thoại: kiểu ứng dụng xem phim (banner lớn, hàng poster dọc, thanh tab dưới) ===== */
 .chev{display:none}
 .playic{position:absolute;left:50%;top:50%;width:2.6rem;height:2.6rem;margin:-1.3rem;border-radius:50%;border:.14rem solid #fff;background:rgba(0,0,0,.28)}
@@ -267,6 +275,15 @@ h2{font-size:1.35rem;margin:.4rem var(--safe-x) 0;font-weight:700;text-shadow:0 
   <div class="track" id="favrow"></div>
 </div>
 
+<div id="upd" hidden>
+  <div id="updc" class="glass">
+    <div id="updh"><span id="updv"></span></div>
+    <div id="updt"></div>
+    <ul id="updl"></ul>
+    <div id="updf"></div>
+    <span class="hb main" tabindex="0" data-upd="ok">Đã hiểu</span>
+  </div>
+</div>
 <div id="auth" hidden>
   <div id="apanel" class="glass">
     <div class="atabs" id="atabs"></div>
@@ -2028,12 +2045,14 @@ function renderMe(){
   $('#mename').textContent=name;
   $('#mesub').textContent=ME?('@'+ME+' · dữ liệu lưu trên thiết bị này'):'Bạn đang xem với tư cách khách. Đăng nhập để có danh sách riêng.';
   $('#mebtns').innerHTML=ME?'<span class="hb" tabindex="0" data-m="avatar">Đổi avatar</span><span class="hb" tabindex="0" data-m="logout">Đăng xuất</span>':'<span class="hb main" tabindex="0" data-m="login">Đăng nhập</span><span class="hb" tabindex="0" data-m="register">Đăng ký</span><span class="hb" tabindex="0" data-m="qr">Đăng nhập bằng điện thoại</span>';
+  $('#mebtns').insertAdjacentHTML('beforeend','<span class="hb" tabindex="0" data-m="whats">Có gì mới · v'+APP_VER+'</span>');
   if(MOBILE)$('#mebtns').insertAdjacentHTML('beforeend','<span class="hb" tabindex="0" data-m="qr">Đăng nhập TV</span>');
   const hist=getL('hist').map(h=>Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')})),fav=getL('fav');
   $('#histrow').innerHTML=hist.length?hist.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có lịch sử xem. Phim bạn xem sẽ hiện ở đây.</div>';
   $('#favrow').innerHTML=fav.length?fav.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có phim yêu thích. Chọn nút Yêu thích ở trang phim.</div>';
 }
 function meAction(m){
+  if(m==='whats'){showUpd('Có gì mới',APP_VER,CHANGES);return;}
   if(m==='logout'){ME=null;store.set('session',null);updateAvatar();updateFavUI();renderMe();msg('Đã đăng xuất');const f=$('#me [tabindex]');if(f)f.focus({preventScroll:true});}
   else openAuth(m);
 }
@@ -2204,6 +2223,7 @@ async function authSubmit(a){
 
 /* ---------- định tuyến hành động ---------- */
 function goBack(){
+  if(!$('#upd').hidden){updClose();return;}
   if(!$('#kb').hidden){kbClose();return;}
   if(!$('#auth').hidden){closeAuth();return;}
   if(!$('#player').hidden){stop();renderDetail();return;}
@@ -2246,6 +2266,7 @@ function route(el){
   if(el.dataset.cf!==undefined){loadList('hoat-hinh','',false,el.dataset.cf);return true;}
   if(el.dataset.rowgo!==undefined){const g=el.dataset.rowgo.split(':');stack.length=0;if(g[1])loadGenre(g[1],false,g[0]);else loadList(g[0]);return true;}
   if(el.dataset.tab==='me'){openMe();return true;}
+  if(el.dataset.upd!==undefined){updClose();return true;}
   if(el.id==='more'){if(L.kind==='genre')loadGenre(L.slug,true,L.type);else loadList(L.kind,L.q,true);return true;}
   if(el.id==='playbtn'){play();return true;}
   if(el.id==='backbtn'){goBack();return true;}
@@ -2255,7 +2276,7 @@ function route(el){
 }
 document.addEventListener('wheel',e=>{
   if(MOBILE)return;
-  const h=$('#home');if(h.hidden||!$('#player').hidden||!$('#kb').hidden||!$('#auth').hidden)return;
+  const h=$('#home');if(h.hidden||!$('#player').hidden||!$('#kb').hidden||!$('#auth').hidden||!$('#upd').hidden)return;
   const w=$('#rowsWrap');if(w.contains(e.target))return;
   w.scrollTop+=e.deltaY;
 },{passive:true});
@@ -2263,6 +2284,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[tabindex]');if(
 
 /* ---------- điều hướng bằng remote ---------- */
 function focusables(){
+  if(!$('#upd').hidden)return[...document.querySelectorAll('#upd [tabindex]')];
   if(!$('#kb').hidden)return[...document.querySelectorAll('#kb [tabindex]')];
   if(!$('#auth').hidden)return[...document.querySelectorAll('#auth [tabindex]')];
   return[...document.querySelectorAll('#bar [tabindex], .view:not([hidden]) [tabindex]')].filter(e=>e.offsetParent!==null);
@@ -2314,6 +2336,34 @@ document.addEventListener('keydown',e=>{
   else if(isBack(e)||e.key==='Backspace'){e.preventDefault();goBack();}
 });
 updateAvatar();updateFavUI();(function(){const f=()=>document.body.classList.toggle('sc',Math.max($('#home').scrollTop,$('#list').scrollTop,$('#detail').scrollTop,$('#me').scrollTop)>180);['home','list','detail','me'].forEach(id=>$('#'+id).addEventListener('scroll',f,{passive:true}));})();
+/* ---------- bảng cập nhật ---------- */
+const APP_VER='1.0.2';
+const UPDATE_URL='https://raw.githubusercontent.com/manhdungn111-svg/FlixTV/main/version.json'; /* file version.json trong repo: {"version":"1.0.3","notes":["..."],"url":"https://..."} */
+const CHANGES=['Phim nổi bật nằm đầu trang chủ, poster lớn đổi theo phim đang chọn','Dùng bàn phím mặc định của TV khi nhập chữ','Đổi avatar bằng ảnh (chọn từ thiết bị hoặc dán link)','Đăng nhập TV bằng điện thoại: nhập mã hoặc quét mã QR','Chạy mượt hơn trên TV, tự vừa khít mọi độ phân giải','Giao diện điện thoại mới: banner lớn, Top 10, thanh tab dưới'];
+let updBack=null;
+function showUpd(title,ver,notes,foot){
+  updBack=document.activeElement;
+  $('#updv').textContent='v'+ver;$('#updt').textContent=title;
+  $('#updl').innerHTML=notes.map(n=>'<li>'+esc(n)+'</li>').join('');
+  $('#updf').textContent=foot||'';$('#updf').hidden=!foot;
+  $('#upd').hidden=false;const b=$('#upd [data-upd]');if(b)b.focus({preventScroll:true});
+}
+function updClose(){$('#upd').hidden=true;const b=updBack&&updBack.isConnected?updBack:null;if(b)b.focus({preventScroll:true});}
+const vnum=v=>String(v||'0').split('.').map(x=>parseInt(x,10)||0);
+function vcmp(a,b){a=vnum(a);b=vnum(b);for(let i=0;i<3;i++){if((a[i]||0)!==(b[i]||0))return(a[i]||0)>(b[i]||0)?1:-1;}return 0;}
+async function updStart(){
+  try{
+    if(store.get('seenVer')!==APP_VER){store.set('seenVer',APP_VER);showUpd('Bản cập nhật mới',APP_VER,CHANGES);return;}
+    const c=new AbortController(),t=setTimeout(()=>c.abort(),6000);
+    const r=await fetch(UPDATE_URL+'?t='+Date.now(),{signal:c.signal,cache:'no-store'});clearTimeout(t);
+    const j=await r.json();
+    if(j&&j.version&&vcmp(j.version,APP_VER)>0&&store.get('remind')!==j.version&&$('#upd').hidden&&$('#auth').hidden&&$('#player').hidden){
+      store.set('remind',j.version);
+      showUpd('Có bản cập nhật mới',j.version,Array.isArray(j.notes)&&j.notes.length?j.notes:['Cải tiến và sửa lỗi'],j.url?'Tải bản mới tại: '+j.url:'Hãy cài lại ứng dụng để cập nhật.');
+    }
+  }catch(e){}
+}
+setTimeout(updStart,2500);
 loadHome(true);
 </script>
 </body>
