@@ -181,6 +181,9 @@ h2{font-size:1.35rem;margin:.4rem var(--safe-x) 0;font-weight:700;text-shadow:0 
 #abody .hb{margin-top:.4rem;margin-right:.8rem}
 #gtoast{position:fixed;left:50%;bottom:calc(var(--safe-y) + 1rem);transform:translateX(-50%);padding:.8rem 1.8rem;border-radius:3rem;font-size:1.2rem;z-index:40;pointer-events:none}
 .avgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:1.1rem;padding:.4rem}
+.avimg{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+#abtn.has,#meav,.bigav{overflow:hidden}
+#abtn .ini:has(.avimg),.bigav .ini:has(.avimg){width:100%;height:100%}
 .avopt{aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:2.2rem;font-weight:800;border:.2rem solid transparent;transition:transform .12s}
 .avopt svg,.bigav svg,.ibtn.has svg{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .avopt svg{width:55%;height:55%}
@@ -2168,11 +2171,12 @@ const AVATARS=[
 ];
 function avBg(i){const a=AVATARS[i>=0&&i<AVATARS.length?i:0];return `linear-gradient(135deg,${a[0]},${a[1]})`;}
 function avInner(u,name){
+  if(u&&u.photo)return '<img class="avimg" alt="" src="'+esc(u.photo)+'">';
   const i=u&&typeof u.av==='number'?u.av:0,a=AVATARS[i]||AVATARS[0];
   return a[2]?`<svg viewBox="0 0 24 24">${AV_I[a[2]]}</svg>`:esc(String(name||'?').charAt(0).toUpperCase());
 }
 function setAvatar(i){
-  const us=users();if(!ME||!us[ME])return;us[ME].av=i;store.set('users',us);
+  const us=users();if(!ME||!us[ME])return;us[ME].av=i;delete us[ME].photo;store.set('users',us);
   updateAvatar();if(curView()==='me')renderMe();closeAuth();msg('Đã đổi avatar');
 }
 function renderAuth(fs){
@@ -2193,6 +2197,7 @@ function renderAuth(fs){
   else if(AM==='avatar'){
     const us=users(),u=us[ME]||{},cur=typeof u.av==='number'?u.av:0,nm=u.name||ME||'';
     body='<div class="ainfo">Chọn avatar của bạn.</div><div class="avgrid">'+AVATARS.map((a,i)=>`<span class="avopt${i===cur?' sel':''}" tabindex="0" data-av="${i}" style="background:${avBg(i)}">${avInner({av:i},nm)}</span>`).join('')+'</div>';
+    body+='<div style="margin-top:1rem">'+btn('avphoto','Chọn ảnh từ thiết bị',1)+btn('avurl','Dán link ảnh')+(u.photo?btn('avclear','Xóa ảnh'):'')+'</div>';
   }
   const tabs=AM==='avatar'?[]:[['login','Đăng nhập'],['register','Đăng ký'],['qr',MOBILE?'Đăng nhập TV':'Quét mã QR']];
   $('#atabs').innerHTML=(AM==='avatar'?'<div style="font-size:1.4rem;font-weight:700">Đổi avatar</div>':tabs.map(t=>`<span class="ep glass ${t[0]===AM?'cur':''}" tabindex="0" data-am="${t[0]}">${t[1]}</span>`).join(''))+'<span class="ep glass xbtn" tabindex="0" data-aclose="1">✕ Thoát</span>';
@@ -2225,8 +2230,36 @@ async function tvScan(err){
     TVS={st:st,t:setInterval(async()=>{try{const r=await det.detect(v);if(r.length){const k=tvToken(r[0].rawValue);if(k){tvScanStop();tvGo(k,err);}}}catch(e){}},500)};
   }catch(e){err('Không mở được camera. Hãy nhập mã trên TV.');}
 }
+function savePhoto(v){
+  const us=users();if(!ME||!us[ME])return;us[ME].photo=v;store.set('users',us);
+  updateAvatar();if(curView()==='me')renderMe();closeAuth();msg('Đã đổi ảnh đại diện');
+}
+function pickPhoto(err){
+  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];if(!f)return;
+    const rd=new FileReader();
+    rd.onerror=()=>err('Không đọc được ảnh.');
+    rd.onload=()=>{
+      const im=new Image();
+      im.onerror=()=>err('Tệp này không phải ảnh hợp lệ.');
+      im.onload=()=>{
+        const S=256,c=document.createElement('canvas');c.width=c.height=S;
+        const m=Math.min(im.width,im.height),sx=(im.width-m)/2,sy=(im.height-m)/2;
+        c.getContext('2d').drawImage(im,sx,sy,m,m,0,0,S,S);
+        savePhoto(c.toDataURL('image/jpeg',.85));
+      };
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  };
+  inp.click();
+}
 async function authSubmit(a){
   const err=t=>{$('#aerr').textContent=t;};
+  if(a==='avphoto')return pickPhoto(err);
+  if(a==='avclear'){const us=users();if(ME&&us[ME]){delete us[ME].photo;store.set('users',us);updateAvatar();if(curView()==='me')renderMe();closeAuth();msg('Đã xóa ảnh');}return;}
+  if(a==='avurl')return kbOpen({title:'Dán link ảnh (https://...)',max:400,go:'Xong',done:v=>{v=String(v||'').trim();if(!v)return;if(!/^https?:\/\/\S+$/i.test(v))return err('Link ảnh phải bắt đầu bằng http:// hoặc https://');savePhoto(v);}});
   if(a==='tvgo'){const k=tvToken(F.tvcode);if(!k)return err('Mã chưa đúng. Nhập đủ 24 ký tự hiện trên TV.');return tvGo(k,err);}
   if(a==='tvscan')return tvScan(err);
   const user=String(F.user||'').trim().toLowerCase();
