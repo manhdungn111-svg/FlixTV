@@ -1,0 +1,2337 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<script>document.documentElement.className="mobile";</script>
+<title>FlixTV</title>
+<style>
+/* Bố cục TV 16:9: khung cố định 1920x1080 tự co để vừa màn hình (720p, 1080p, 4K), chừa viền đen nếu tỉ lệ khác. Thêm ?lite vào địa chỉ để tắt hiệu ứng mờ trên TV yếu. */
+:root{--bg:#0b0c10;--fg:#f6f7f9;--mute:rgba(240,243,250,.72);--accent:#0a7bff;--accent-ink:#ffffff;--grad:linear-gradient(90deg,#0a7bff,#00229a);--focus:#fff;
+  --glass:rgba(255,255,255,.11);--line:rgba(255,255,255,.2);--sub:#1f5fd6;--tm:#26b560;
+  --safe-x:80px;--safe-y:45px;--r1:1rem;--r2:1.4rem;--r3:2rem}
+*{box-sizing:border-box}
+html{font-size:21px;background:#000}
+body{background:#000}
+#app{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:var(--bg)}
+html,body{margin:0;height:100%;color:var(--fg);font-family:-apple-system,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:1rem;line-height:1.35;overflow:hidden;user-select:none;-webkit-user-select:none}
+[tabindex]{outline:none}
+.glass{background:var(--glass);border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 .8rem 2.4rem rgba(0,0,0,.35);-webkit-backdrop-filter:blur(1.6rem) saturate(1.7);backdrop-filter:blur(1.6rem) saturate(1.7)}
+.lite .glass{background:rgba(38,44,58,.92);-webkit-backdrop-filter:none;backdrop-filter:none}
+.lite .hb,.lite .ibtn,.lite #clock,.lite .bd,.lite #rowsWrap,.lite .rb,.lite .pill,.lite .pb,.lite #pset,.lite #toast{-webkit-backdrop-filter:none;backdrop-filter:none}
+.lite #rowsWrap{background:rgba(20,24,34,.85)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:rgba(38,44,58,.92)}}
+
+/* nền toàn màn hình */
+#bg{position:fixed;inset:0;background:var(--bg) 70% center/cover no-repeat;opacity:var(--bgo,1);transition:opacity .35s}
+#bg.fade{opacity:.15}
+body[data-v=list]{--bgo:.28}
+body[data-v=me]{--bgo:.2}
+body[data-v=detail]{--bgo:.85}
+#bgs{position:fixed;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(8,9,13,.94) 0%,rgba(8,9,13,.72) 34%,rgba(8,9,13,.15) 72%,transparent),linear-gradient(0deg,var(--bg) 6%,rgba(11,12,16,.7) 28%,transparent 58%),linear-gradient(180deg,rgba(8,9,13,.75),transparent 20%)}
+
+/* thanh trên */
+#bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:.5rem;padding:var(--safe-y) var(--safe-x) 0;z-index:5}
+.logo{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:1.6rem;margin-right:1.6rem;letter-spacing:.01em}
+.logo svg{width:2.6rem;height:2.6rem}
+.logo b{color:var(--accent)}
+.nav{padding:.5rem 1.35rem;border-radius:3rem;color:#fff;cursor:pointer;white-space:nowrap;font-size:1.15rem;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7);transition:transform .12s}
+.nav.on{color:var(--accent-ink);background:var(--grad);text-shadow:none}
+.nav:focus,.btn:focus,.ep:focus,.key:focus,.ibtn:focus{background:#fff;color:#10131a;transform:scale(1.08);text-shadow:none}
+.navpill{display:flex;align-items:center;gap:.3rem;padding:.35rem;border-radius:3rem}
+.right{margin-left:auto;display:flex;align-items:center;gap:1.1rem}
+.ibtn{width:2.9rem;height:2.9rem;border-radius:50%;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(1.2rem) saturate(1.6);backdrop-filter:blur(1.2rem) saturate(1.6);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s}
+.ibtn svg{width:55%;height:55%;fill:#fff}
+.ibtn:focus svg{fill:none}
+#clock{padding:.4rem 1.2rem;border-radius:3rem;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(1.2rem) saturate(1.6);backdrop-filter:blur(1.2rem) saturate(1.6);font-size:1.3rem;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7);font-variant-numeric:tabular-nums}
+
+.view{position:absolute;inset:6.4rem 0 0 0;overflow-y:auto;padding:.6rem var(--safe-x) 6rem;scrollbar-width:none;scroll-behavior:smooth}
+.view::-webkit-scrollbar{display:none}
+#home{inset:0;overflow:hidden;padding:0}
+
+/* thông tin phim bên trái */
+#hero{position:absolute;left:var(--safe-x);bottom:21.5rem;max-width:52%;padding:1.6rem 2.2rem 1.8rem;border-radius:2rem}
+#h-t{font-size:2.9rem;font-weight:800;line-height:1.1;text-shadow:0 2px 14px rgba(0,0,0,.7)}
+#h-o{margin-top:.5rem;font-size:1.3rem;color:var(--mute);font-weight:600}
+#h-m{margin-top:.7rem;font-size:1.1rem;font-weight:700}
+#h-g{margin-top:.7rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-size:1.05rem;color:var(--mute);font-weight:600;min-height:1.6rem}
+#h-d{margin-top:.8rem;font-size:1.1rem;font-weight:600;color:#eef1f6;text-shadow:0 1px 8px rgba(0,0,0,.8);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:4.2em;max-width:46rem}
+.hbtns{margin-top:1.1rem;display:flex;gap:1rem}
+.hb{display:inline-flex;align-items:center;gap:.6rem;padding:.8rem 2.2rem;border-radius:.9rem;font-size:1.15rem;font-weight:700;cursor:pointer;transition:transform .12s,box-shadow .12s;background:rgba(255,255,255,.14);border:.1rem solid var(--line);-webkit-backdrop-filter:blur(1rem);backdrop-filter:blur(1rem);color:#fff}
+.hb.main{background:var(--grad);color:var(--accent-ink);border-color:#0a7bff}
+.hb:focus{transform:scale(1.07);box-shadow:0 0 0 .22rem #fff,0 .8rem 2rem rgba(0,0,0,.5)}
+.hb.main:focus{background:linear-gradient(90deg,#3b94ff,#0a4fd6)}
+.hb svg{width:1.2rem;height:1.2rem;fill:currentColor}
+
+/* hàng thẻ ngang */
+#rowsWrap{position:absolute;left:0;right:0;bottom:0;height:20rem;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;scroll-snap-type:y proximity;scroll-behavior:smooth;background:rgba(255,255,255,.06);border-top:1px solid var(--line);border-radius:2.2rem 2.2rem 0 0;-webkit-backdrop-filter:blur(1.6rem) saturate(1.5);backdrop-filter:blur(1.6rem) saturate(1.5)}
+#rowsWrap::-webkit-scrollbar{display:none}
+.row{height:17.5rem;scroll-snap-align:start}
+.track{overflow-x:auto!important;scrollbar-width:none;overscroll-behavior-x:contain}
+.track::-webkit-scrollbar{display:none}
+h2{font-size:1.35rem;margin:.4rem var(--safe-x) 0;font-weight:700;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+#list h2,#detail h2{margin-left:.3rem}
+.track{position:relative;display:flex;gap:1.2rem;overflow:hidden;padding:1rem var(--safe-x) 1rem;scroll-behavior:smooth}
+.card{flex:0 0 17rem;cursor:pointer}
+.pw{position:relative;width:17rem;height:9.6rem;border-radius:var(--r2);overflow:hidden;background:#161a23;border:1px solid rgba(255,255,255,.14);transition:transform .15s,box-shadow .15s}
+.p{width:100%;height:100%;object-fit:cover;display:block}
+.bds{position:absolute;left:.6rem;bottom:.6rem;display:flex;gap:.3rem}
+.bd{padding:.12rem .65rem;border-radius:.6rem;font-size:.95rem;font-weight:800;color:#fff;background:rgba(31,95,214,.6);border:1px solid rgba(255,255,255,.3);-webkit-backdrop-filter:blur(.8rem);backdrop-filter:blur(.8rem)}
+.bd.tm{background:rgba(38,181,96,.6)}
+#h-g .bds{position:static}
+.ibtn svg{fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round}
+.ibtn:focus svg{stroke:#10131a}
+.card:focus .pw{transform:scale(1.07);box-shadow:0 0 0 .22rem var(--focus),0 .9rem 2.2rem rgba(0,0,0,.65)}
+.card{position:relative}
+.rank{position:absolute;left:-.3rem;top:-1rem;font-size:3.4rem;font-weight:900;line-height:1;color:#fff;-webkit-text-stroke:.14rem #0a7bff;text-shadow:0 .2rem .8rem rgba(0,0,0,.7);pointer-events:none;z-index:2}
+.card .t{margin:.7rem .3rem 0;font-size:1.05rem;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.card:focus .t{color:var(--accent)}
+.grp{flex:0 0 100%;font-size:1.15rem;font-weight:700;color:var(--mute);margin:.6rem .3rem .1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,17rem);gap:1.6rem 1.3rem;padding:1rem .6rem;justify-content:start}
+
+.btn{display:inline-block;padding:.75rem 1.9rem;border-radius:3rem;cursor:pointer;margin:0 .8rem .8rem 0;font-size:1.1rem;transition:transform .12s}
+.eps{display:flex;flex-wrap:wrap;gap:.7rem;padding:.6rem}
+.ep{padding:.6rem 1.1rem;min-width:4.4rem;text-align:center;border-radius:var(--r1);cursor:pointer;font-size:1.05rem;transition:transform .12s}
+.ep.cur{background:var(--grad);color:var(--accent-ink);border-color:transparent;font-weight:700}
+.ep.cur:focus{background:#fff;color:#10131a}
+.dhero{max-width:56%;padding:2rem 2.4rem;border-radius:2rem;margin-top:1rem}
+.dhero h1{margin:0;font-size:2.9rem;line-height:1.1;text-shadow:0 2px 14px rgba(0,0,0,.7)}
+.dhero .desc{margin-top:.9rem;max-width:46rem;font-size:1.1rem;font-weight:600;color:#eef1f6;max-height:6.8em;overflow:hidden;text-shadow:0 1px 8px rgba(0,0,0,.8)}
+#msg{padding:4rem;text-align:center;color:var(--mute);font-size:1.2rem}
+
+/* bàn phím ảo */
+#kb{position:fixed;inset:0;background:rgba(6,8,12,.72);-webkit-backdrop-filter:blur(2rem);backdrop-filter:blur(2rem);z-index:30;padding:calc(var(--safe-y) + 1rem) var(--safe-x);display:flex;flex-direction:column;align-items:center}
+.lite #kb{background:rgba(6,8,12,.95);backdrop-filter:none}
+#kbq{width:min(46rem,100%);min-height:3.8rem;padding:.8rem 1.6rem;border-radius:1.5rem;font-size:1.6rem;margin-bottom:1.4rem}
+#kbq.empty{color:var(--mute)}
+#keys{display:grid;grid-template-columns:repeat(10,4rem);gap:.55rem;margin-bottom:.55rem}
+#acts{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center}
+.key{height:3.4rem;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);font-size:1.3rem;cursor:pointer;padding:0 1.4rem;transition:transform .1s}
+#keys .key{padding:0}
+.key.go{background:var(--grad);color:var(--accent-ink);font-weight:700;border-color:transparent}
+.key.go:focus{background:#fff;color:#10131a}
+
+/* trình phát: nền đen, nút xám phẳng, thanh tua xanh */
+#player{position:fixed;inset:0;background:#000;z-index:20}
+#player video,#player iframe{width:100%;height:100%;border:0;background:#000;object-fit:contain}
+#top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:1.4rem;padding:var(--safe-y) var(--safe-x) 3.5rem;background:linear-gradient(rgba(0,0,0,.75),transparent);transition:opacity .25s,visibility .25s}
+#ptl{min-width:0}
+#ptitle{font-size:1.9rem;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pep{font-size:1.6rem;letter-spacing:.02em}
+#top .pill{margin-left:auto}
+#bot{position:absolute;left:0;right:0;bottom:0;padding:3.5rem var(--safe-x) var(--safe-y);background:linear-gradient(transparent,rgba(0,0,0,.8));transition:opacity .25s,visibility .25s}
+.hide{opacity:0;visibility:hidden}
+.rb,.pill,.pb{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(1.2rem);backdrop-filter:blur(1.2rem);color:#fff;cursor:pointer;transition:transform .12s,background .12s;flex:none}
+.rb{width:4rem;height:4rem;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.rb svg{width:55%;height:55%;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.pill{padding:1rem 2.4rem;border-radius:3rem;font-weight:700;font-size:1.1rem;letter-spacing:.02em;white-space:nowrap}
+.pb{width:5.4rem;height:5.4rem;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pb svg{width:50%;height:50%;fill:#fff}
+.rb:focus,.pill:focus,.pb:focus{background:#0a84ff;box-shadow:0 0 0 .2rem #fff;transform:scale(1.1)}
+.pill.off{opacity:.35}
+#barlab{display:flex;justify-content:space-between;font-size:1.7rem;font-weight:300;margin-bottom:.5rem;font-variant-numeric:tabular-nums}
+#pbar{position:relative;height:1.1rem;background:#4a4a4a;cursor:pointer}
+#pfill{height:100%;width:0;background:var(--grad)}
+#pknob{position:absolute;top:50%;left:0;width:1.8rem;height:1.8rem;margin:-.9rem 0 0 -.9rem;border-radius:50%;background:#0a63e6;transition:transform .12s}
+#pbar:focus #pknob{transform:scale(1.35);box-shadow:0 0 0 .2rem #fff}
+#ctl{display:flex;align-items:center;justify-content:space-between;margin-top:1.2rem}
+#cbtns{display:flex;align-items:center;gap:1.1rem}
+#pset{position:absolute;top:calc(var(--safe-y) + 5.5rem);right:var(--safe-x);width:20rem;padding:1rem;border-radius:1.2rem;background:rgba(50,50,58,.6);border:1px solid rgba(255,255,255,.18);-webkit-backdrop-filter:blur(1.8rem) saturate(1.6);backdrop-filter:blur(1.8rem) saturate(1.6);display:flex;flex-direction:column;gap:.35rem;z-index:3}
+#pset .sh{font-size:1rem;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.06em;margin:.5rem .4rem .1rem}
+.opt{padding:.7rem 1.1rem;border-radius:.7rem;font-size:1.1rem;cursor:pointer}
+.opt.sel::after{content:"✓";float:right;color:#4da3ff}
+.opt:focus{background:#0a84ff;color:#fff}
+.opt:focus::after{color:#fff}
+#toast{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:1rem 2.2rem;border-radius:1.5rem;font-size:2rem;background:rgba(40,40,46,.55);border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(1.4rem);backdrop-filter:blur(1.4rem);transition:opacity .25s,visibility .25s;pointer-events:none}
+#spin{position:absolute;left:50%;top:50%;width:4rem;height:4rem;margin:-2rem;border:.4rem solid rgba(255,255,255,.25);border-top-color:#0a84ff;border-radius:50%;animation:sp .9s linear infinite;pointer-events:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* cá nhân, đăng nhập */
+#abtn.has{border-color:transparent}
+#abtn .ini svg{width:1.6rem;height:1.6rem}
+#abtn .ini{display:flex}
+#abtn.has:focus{background:#fff;color:#10131a}
+.ini{font-weight:800;font-size:1.3rem}
+.hb.fav svg{fill:none;stroke:currentColor;stroke-width:2.2}
+.hb.fav.on svg{fill:#ff5470;stroke:#ff5470}
+.mehead{display:flex;align-items:center;gap:2rem;padding:1.6rem 2rem;border-radius:2rem;margin-top:.8rem}
+.bigav{width:6.4rem;height:6.4rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--grad);font-size:2.6rem;font-weight:800;flex:none}
+.bigav svg{width:55%;height:55%}
+#mename{font-size:2rem;font-weight:800}
+#mesub{color:var(--mute);font-size:1.05rem;margin-top:.2rem;max-width:30rem}
+.mebtns{margin-left:auto;display:flex;gap:.8rem;flex-wrap:wrap;justify-content:flex-end}
+.mebtns .hb{padding:.7rem 1.6rem;font-size:1.05rem}
+#me h2{display:flex;align-items:center;gap:1.2rem;margin:1.6rem .3rem 0}
+#me h2 .ep{font-size:1rem;padding:.4rem 1rem;font-weight:600}
+#me .track{padding:1rem .6rem}
+.empty{color:var(--mute);font-size:1.1rem;padding:1.2rem .4rem}
+#auth{position:fixed;inset:0;z-index:25;background:rgba(6,8,12,.7);-webkit-backdrop-filter:blur(1.8rem);backdrop-filter:blur(1.8rem);display:flex;align-items:center;justify-content:center}
+.lite #auth{background:rgba(6,8,12,.95);backdrop-filter:none}
+#apanel{width:46rem;padding:2rem 2.4rem 2.2rem;border-radius:2rem}
+.atabs{display:flex;gap:.6rem;margin-bottom:1.4rem;flex-wrap:wrap}
+.field{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.4rem;border-radius:1.1rem;margin-bottom:.8rem;cursor:pointer;font-size:1.2rem;transition:transform .12s}
+.fl{color:var(--mute);flex:none}
+.fv{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fv i{color:var(--mute);font-style:normal;font-weight:400}
+.field:focus{background:rgba(255,255,255,.95);color:#10131a;transform:scale(1.03)}
+.field:focus .fl,.field:focus .fv i{color:#555}
+#aerr{min-height:1.6rem;color:#ff8a8a;font-size:1.05rem;margin-top:.6rem}
+.ainfo{color:var(--mute);font-size:1.05rem;margin:.2rem 0 .9rem}
+.ainfo b{color:#fff;font-size:1.3rem;letter-spacing:.2rem}
+#abody .hb{margin-top:.4rem;margin-right:.8rem}
+#gtoast{position:fixed;left:50%;bottom:calc(var(--safe-y) + 1rem);transform:translateX(-50%);padding:.8rem 1.8rem;border-radius:3rem;font-size:1.2rem;z-index:40;pointer-events:none}
+.avgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:1.1rem;padding:.4rem}
+.avopt{aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:2.2rem;font-weight:800;border:.2rem solid transparent;transition:transform .12s}
+.avopt svg,.bigav svg,.ibtn.has svg{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.avopt svg{width:55%;height:55%}
+.avopt.sel{border-color:#fff}
+.avopt:focus{box-shadow:0 0 0 .25rem #fff;transform:scale(1.12)}
+.qrwrap{display:flex;gap:2rem;align-items:center}
+.qrbox{background:#fff;padding:.9rem;border-radius:1.2rem;flex:none;line-height:0}
+.qrbox svg{width:13.5rem;height:13.5rem;display:block}
+.qrside .ainfo{margin:0 0 .8rem}
+.qrmeta{color:var(--mute);font-size:.95rem;margin-top:.5rem}
+.atabs .xbtn{margin-left:auto}
+/* ===== Bản điện thoại (màn hình nhỏ, chạm) ===== */
+html.mobile{font-size:16px}
+.mobile body{overflow:hidden}
+.mobile #app{position:fixed;inset:0;width:auto;height:auto;transform:none!important}
+.mobile{--safe-x:14px;--safe-y:10px}
+.mobile #bar{flex-wrap:wrap;gap:.5rem;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 0;background:linear-gradient(rgba(7,9,15,.92),rgba(7,9,15,.55) 75%,transparent)}
+.mobile .logo{font-size:1.3rem;margin-right:0}.mobile .logo svg{width:2rem;height:2rem}
+.mobile .right{margin-left:auto;gap:.6rem}.mobile #clock{display:none}
+.mobile .ibtn{width:2.6rem;height:2.6rem}
+.mobile .navpill{order:3;width:100%;overflow-x:auto;scrollbar-width:none;border-radius:3rem;padding:.25rem}
+.mobile .navpill::-webkit-scrollbar{display:none}
+.mobile .nav{padding:.45rem .95rem;font-size:1rem}
+.mobile .view{inset:7.4rem 0 0 0;padding:.4rem 14px calc(env(safe-area-inset-bottom,0px) + 4rem);scroll-behavior:auto}
+.mobile #home{inset:7.4rem 0 0 0;overflow-x:hidden;overflow-y:auto;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 3rem)}
+.mobile #hero{position:static;max-width:none;margin:.4rem 14px 0;padding:1.1rem 1.2rem;border-radius:1.6rem}
+.mobile #h-t{font-size:1.55rem}.mobile #h-o{font-size:1rem}.mobile #h-m{font-size:.95rem}.mobile #h-g{font-size:.9rem}
+.mobile #h-d{font-size:.95rem;-webkit-line-clamp:2;min-height:0;margin-top:.6rem}
+.mobile .hbtns{flex-wrap:wrap;gap:.6rem;margin-top:.9rem}
+.mobile .hb{padding:.65rem 1.3rem;font-size:1rem}
+.mobile #rowsWrap{position:static;height:auto;overflow:visible;background:none;border:0;border-radius:0;-webkit-backdrop-filter:none;backdrop-filter:none;margin-top:.8rem;scroll-snap-type:none}
+.mobile .row{height:auto}
+.mobile h2{margin:1rem 14px 0;font-size:1.2rem}
+.mobile .track{padding:.7rem 14px .4rem;gap:.8rem;overflow-x:auto!important;overflow-y:hidden}
+.mobile .card{flex:0 0 11.5rem}.mobile .pw{width:11.5rem;height:6.5rem}
+.mobile .bds{left:.4rem;right:.4rem;bottom:.4rem;gap:.25rem;flex-wrap:nowrap}
+.mobile .bd{font-size:.62rem;padding:.12rem .4rem;border-radius:.5rem;white-space:nowrap;min-width:0;overflow:hidden}
+.mobile .card:focus,.mobile .card:focus-visible{outline:none;box-shadow:none;transform:none}
+.mobile .card:focus .pw{box-shadow:none;outline:none}
+.mobile .card .t{font-size:.95rem}
+.mobile .rank{font-size:2.6rem;top:-.7rem}
+.mobile .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem .8rem;padding:.6rem 0}
+.mobile .grid .card{flex:none;width:auto}.mobile .grid .pw{width:100%;height:auto;aspect-ratio:16/9}
+.mobile #list h2,.mobile #detail h2{margin-left:0}
+.mobile .ep{padding:.55rem 1rem;min-width:3.6rem;font-size:1rem}
+.mobile .grp{font-size:1rem}
+.mobile .dhero{max-width:none;padding:1.2rem}.mobile .dhero h1{font-size:1.6rem}.mobile .dhero .desc{font-size:.98rem}
+.mobile .mehead{flex-wrap:wrap;gap:1rem;padding:1.1rem}.mobile .mebtns{margin-left:0;justify-content:flex-start}.mobile .bigav{width:4.6rem;height:4.6rem;font-size:1.9rem}
+.mobile #mename{font-size:1.4rem}.mobile #mesub{font-size:.95rem}
+.mobile #apanel{width:min(46rem,92vw);max-height:92vh;overflow:auto;padding:1.3rem}
+.mobile .field{font-size:1.05rem}
+.mobile #gtoast{bottom:calc(env(safe-area-inset-bottom,0px) + 1.2rem)}
+.mobile #kb{padding:calc(env(safe-area-inset-top,0px) + 1.2rem) 14px;justify-content:flex-start}
+.mobile #kb .key{height:3rem}
+#kbin{width:min(46rem,100%);padding:1rem 1.3rem;border-radius:1.2rem;border:1px solid var(--line);background:var(--glass);color:#fff;font:inherit;font-size:1.2rem;outline:none;margin-bottom:1rem}
+#kbin:focus{border-color:#4da3ff}
+.mobile #top{padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 2.5rem;gap:.8rem}
+.mobile #ptitle{font-size:1.2rem}.mobile #pep{font-size:1rem}
+.mobile .rb{width:3.2rem;height:3.2rem}
+.mobile .pill{padding:.7rem 1.2rem;font-size:.9rem}
+.mobile #bot{padding:2.5rem 14px calc(env(safe-area-inset-bottom,0px) + 12px)}
+.mobile #barlab{font-size:1rem}
+.mobile #pbar{height:1.2rem}.mobile #pknob{width:1.7rem;height:1.7rem;margin:-.85rem 0 0 -.85rem}
+.mobile #ctl{display:flex;justify-content:space-between;align-items:center;gap:.4rem}
+.mobile .pb{width:3rem;height:3rem}.mobile #ctl .pill{padding:.6rem .75rem;font-size:.72rem}
+.mobile #cbtns{gap:.5rem}
+.mobile #pset{top:calc(env(safe-area-inset-top,0px) + 4.8rem);right:14px;width:min(20rem,calc(100vw - 28px))}
+.mobile .qrtab,.mobile [data-am="qr"],.mobile [data-m="qr"]{display:none!important}
+/* ===== Điện thoại: kiểu ứng dụng xem phim (banner lớn, hàng poster dọc, thanh tab dưới) ===== */
+.chev{display:none}
+.playic{position:absolute;left:50%;top:50%;width:2.6rem;height:2.6rem;margin:-1.3rem;border-radius:50%;border:.14rem solid #fff;background:rgba(0,0,0,.28)}
+.playic::after{content:"";position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);border-left:.7rem solid #fff;border-top:.45rem solid transparent;border-bottom:.45rem solid transparent}
+.prog{position:absolute;left:.6rem;right:.6rem;bottom:.45rem;height:.22rem;background:rgba(255,255,255,.3);border-radius:1rem;overflow:hidden}
+.prog i{display:block;height:100%;background:#4da3ff}
+#hdots{display:none}
+#tabbar{display:none}
+.mobile,.mobile #app{background:#000}
+.mobile #bg,.mobile #bgs{display:none}
+.mobile #bar{flex-wrap:nowrap;background:linear-gradient(rgba(0,0,0,.78),transparent);padding:calc(env(safe-area-inset-top,0px) + 8px) 14px 1.4rem;transition:background .2s}
+.mobile body.sc #bar{background:rgba(0,0,0,.94)}
+.mobile .navpill,.mobile #clock{display:none}
+.mobile .view{inset:4.8rem 0 0 0;padding:.4rem 14px calc(env(safe-area-inset-bottom,0px) + 6rem)}
+.mobile #home{inset:0;padding:0 0 calc(env(safe-area-inset-bottom,0px) + 6rem)}
+.mobile #home{overflow-anchor:none}
+.mobile #hero{position:relative;left:0;bottom:auto;display:block;height:min(62vh,36rem);margin:0;padding:0;border:0;border-radius:0;box-shadow:none;max-width:none;width:auto;background:#101010 center top/cover no-repeat;-webkit-backdrop-filter:none;backdrop-filter:none;overflow:hidden;cursor:pointer}
+.mobile #hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.45),transparent 24%,transparent 48%,#000 100%)}
+.mobile #h-t{position:absolute;left:14px;right:6rem;bottom:4.9rem;z-index:2;font-size:1.6rem;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+.mobile #h-m{position:absolute;left:14px;right:6rem;bottom:2.7rem;z-index:2;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:rgba(255,255,255,.78);margin:0}
+.mobile #h-o,.mobile #h-g,.mobile #h-d{display:none}
+.mobile .hbtns{position:absolute;right:14px;bottom:2.8rem;z-index:2;margin:0}
+.mobile .hbtns .hb{display:none}
+.mobile .hbtns .hb.main{display:flex;align-items:center;justify-content:center;width:3.8rem;height:3.8rem;padding:0;border-radius:50%;border:0}
+.mobile .hbtns .hb.main .lbl{display:none}
+.mobile .hbtns .hb.main svg{width:1.7rem;height:1.7rem;margin-left:.15rem}
+.mobile #hdots{display:flex;position:absolute;right:14px;bottom:1.1rem;gap:.35rem;z-index:2}
+#hdots i{width:.45rem;height:.45rem;border-radius:1rem;background:rgba(255,255,255,.35);transition:width .2s}
+#hdots i.on{width:1.3rem;background:#fff}
+.mobile #rowsWrap{margin-top:0}
+.mobile .row h2{display:flex;align-items:center;font-size:1.35rem;margin:1.3rem 14px 0}
+.mobile .chev{display:flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;margin-left:auto;font-size:2rem;font-weight:400;line-height:1;border-radius:50%;cursor:pointer}
+.mobile .row h2::before{display:none}
+.mobile .card{flex:0 0 10.5rem}
+.mobile .pw{width:10.5rem;height:15.75rem;border-radius:1rem}
+.mobile .card.land{flex:0 0 17rem}.mobile .card.land .pw{width:17rem;height:9.6rem}
+.mobile .card .t{font-size:.9rem;font-weight:500;margin:.5rem .1rem 0}
+.mobile .card.ranked{flex:0 0 15.5rem}
+.mobile .ranked .pw{margin-left:5rem;position:relative;z-index:1}.mobile .ranked .t{margin-left:5rem}
+.mobile .rank{left:0;top:auto;bottom:2.2rem;font-size:9.5rem;font-weight:800;line-height:.78;color:transparent;-webkit-text-stroke:.16rem rgba(255,255,255,.5);text-shadow:none;letter-spacing:-.05em;z-index:0}
+.mobile .rank.two{font-size:6.8rem;left:-.4rem}
+.mobile .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem .7rem}
+.mobile .grid .pw{width:100%;height:auto;aspect-ratio:2/3;border-radius:.9rem}
+.mobile #list h2{margin:0 0 .4rem}
+.mobile #tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;padding:.5rem .3rem calc(env(safe-area-inset-bottom,0px) + .45rem);background:rgba(12,12,14,.94);-webkit-backdrop-filter:blur(1.2rem);backdrop-filter:blur(1.2rem);border-top:1px solid rgba(255,255,255,.08)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:.2rem;color:rgba(255,255,255,.6);font-size:.72rem;cursor:pointer;padding:.3rem 0;min-width:0}
+.tab b{font-weight:600;white-space:nowrap}
+.tab svg{width:1.7rem;height:1.7rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:#4da3ff}
+.mobile .tab:focus{background:none;color:inherit;transform:none}
+.mobile .tab.on:focus{color:#4da3ff}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="bg"></div><div id="bgs"></div>
+<div id="bar">
+  <span class="logo"><svg viewBox="0 0 40 40"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a7bff"/><stop offset="1" stop-color="#00229a"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#lg)"/><path d="M16 11v18l14-9z" fill="#ffffff"/></svg><span>Flix<b>TV</b></span></span>
+  <div class="navpill glass">
+  <span class="nav on" tabindex="0" data-go="home">Đề xuất</span>
+  <span class="nav" tabindex="0" data-go="phim-bo">Phim bộ</span>
+  <span class="nav" tabindex="0" data-go="phim-le">Phim lẻ</span>
+  <span class="nav" tabindex="0" data-go="hoat-hinh">Hoạt hình</span>
+    <span class="nav" tabindex="0" data-go="the-loai">Thể loại</span>
+  <span class="nav" tabindex="0" data-go="tv-shows">TV Shows</span>
+  </div>
+  <div class="right">
+    <span class="ibtn" tabindex="0" id="sbtn" title="Tìm kiếm"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15.2 15.2L20 20"/></svg></span>
+    <span id="clock"></span>
+    <span class="ibtn" tabindex="0" id="abtn" title="Cá nhân"></span>
+  </div>
+</div>
+
+<div id="home" class="view">
+  <div id="hero" class="glass">
+    <div id="hdots"></div>
+    <div id="h-t"></div><div id="h-o"></div><div id="h-m"></div><div id="h-g"></div><div id="h-d"></div>
+    <div class="hbtns">
+      <span class="hb main" tabindex="0" data-h="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span class="lbl">Xem ngay</span></span>
+      <span class="hb" tabindex="0" data-h="info"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>Chi tiết</span>
+      <span class="hb fav" tabindex="0" data-h="fav"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>Yêu thích</span></span>
+    </div>
+  </div>
+  <div id="rowsWrap"><div id="rows"></div></div>
+</div>
+<div id="list" class="view" hidden>
+  <h2 id="lt"></h2><div id="chips" class="eps"></div><div id="grid" class="grid"></div>
+  <div style="padding:1.4rem .6rem"><span id="more" class="btn glass" tabindex="0" hidden>Xem thêm</span></div>
+</div>
+<div id="detail" class="view" hidden></div>
+
+<div id="me" class="view" hidden>
+  <div class="mehead glass"><div class="bigav" id="meav"></div><div><div id="mename"></div><div id="mesub"></div></div><div class="mebtns" id="mebtns"></div></div>
+  <h2>Lịch sử xem <span class="ep glass" tabindex="0" id="clrhist">Xóa lịch sử</span></h2>
+  <div class="track" id="histrow"></div>
+  <h2>Phim yêu thích</h2>
+  <div class="track" id="favrow"></div>
+</div>
+
+<div id="auth" hidden>
+  <div id="apanel" class="glass">
+    <div class="atabs" id="atabs"></div>
+    <div id="abody"></div>
+    <div id="aerr"></div>
+  </div>
+</div>
+<div id="gtoast" class="glass" hidden></div>
+
+<nav id="tabbar">
+<span class="tab" tabindex="0" data-go="home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg><b>Trang chủ</b></span>
+<span class="tab" tabindex="0" data-go="phim-bo"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 3l4 3 4-3"/></svg><b>Phim bộ</b></span>
+<span class="tab" tabindex="0" data-go="phim-le"><svg viewBox="0 0 24 24"><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 8l2-4h4l-2 4M10 8l2-4h4l-2 4M16 8l2-4h2v4"/></svg><b>Phim lẻ</b></span>
+<span class="tab" tabindex="0" data-go="the-loai"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg><b>Danh mục</b></span>
+<span class="tab" tabindex="0" data-tab="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg><b>Cá nhân</b></span>
+</nav>
+
+<div id="kb" hidden>
+  <div id="kbq" class="glass empty">Nhập tên phim...</div>
+  <input id="kbin" hidden autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+  <div id="keys"></div>
+  <div id="acts"></div>
+</div>
+
+<div id="player" hidden>
+  <video id="v" playsinline></video>
+  <iframe id="emb" hidden allowfullscreen allow="autoplay; fullscreen"></iframe>
+  <div id="spin" hidden></div>
+  <div id="toast" class="hide"></div>
+  <div id="top">
+    <span class="rb" tabindex="0" data-act="exit" title="Quay lại"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></span>
+    <div id="ptl"><div id="ptitle"></div><div id="pep"></div></div>
+    <span class="pill" tabindex="0" data-act="settings">CÀI ĐẶT</span>
+  </div>
+  <div id="pset" hidden></div>
+  <div id="bot">
+    <div id="barlab"><span id="ptime">00:00</span><span id="pdur">00:00</span></div>
+    <div id="pbar" tabindex="0" data-act="bar"><div id="pfill"></div><div id="pknob"></div></div>
+    <div id="ctl">
+      <span class="pill" tabindex="0" data-act="prev">TẬP TRƯỚC</span>
+      <div id="cbtns"></div>
+      <span class="pill" tabindex="0" data-act="next">TẬP SAU</span>
+    </div>
+  </div>
+</div>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script>
+/* QR encoder: Kazuhiko Arase, MIT license (qrcode-terminal vendor build) */
+var QRLib=(function(){var __m={},__c={};function __req(p){var n=p.replace("./","");if(!__c[n]){var m={exports:{}};__c[n]=m;__m[n](m,m.exports,__req);}return __c[n].exports;}
+__m["QRMode"]=function(module,exports,require){module.exports = {
+    MODE_NUMBER :       1 << 0,
+    MODE_ALPHA_NUM :    1 << 1,
+    MODE_8BIT_BYTE :    1 << 2,
+    MODE_KANJI :        1 << 3
+};
+
+};
+__m["QRErrorCorrectLevel"]=function(module,exports,require){module.exports = {
+	L : 1,
+	M : 0,
+	Q : 3,
+	H : 2
+};
+
+
+};
+__m["QRMaskPattern"]=function(module,exports,require){module.exports = {
+	PATTERN000 : 0,
+	PATTERN001 : 1,
+	PATTERN010 : 2,
+	PATTERN011 : 3,
+	PATTERN100 : 4,
+	PATTERN101 : 5,
+	PATTERN110 : 6,
+	PATTERN111 : 7
+};
+
+};
+__m["QRMath"]=function(module,exports,require){var QRMath = {
+
+	glog : function(n) {
+	
+		if (n < 1) {
+			throw new Error("glog(" + n + ")");
+		}
+		
+		return QRMath.LOG_TABLE[n];
+	},
+	
+	gexp : function(n) {
+	
+		while (n < 0) {
+			n += 255;
+		}
+	
+		while (n >= 256) {
+			n -= 255;
+		}
+	
+		return QRMath.EXP_TABLE[n];
+	},
+	
+	EXP_TABLE : new Array(256),
+	
+	LOG_TABLE : new Array(256)
+
+};
+	
+for (var i = 0; i < 8; i++) {
+	QRMath.EXP_TABLE[i] = 1 << i;
+}
+for (var i = 8; i < 256; i++) {
+	QRMath.EXP_TABLE[i] = QRMath.EXP_TABLE[i - 4]
+		^ QRMath.EXP_TABLE[i - 5]
+		^ QRMath.EXP_TABLE[i - 6]
+		^ QRMath.EXP_TABLE[i - 8];
+}
+for (var i = 0; i < 255; i++) {
+	QRMath.LOG_TABLE[QRMath.EXP_TABLE[i] ] = i;
+}
+
+module.exports = QRMath;
+
+};
+__m["QRPolynomial"]=function(module,exports,require){var QRMath = require('./QRMath');
+
+function QRPolynomial(num, shift) {
+	if (num.length === undefined) {
+		throw new Error(num.length + "/" + shift);
+	}
+
+	var offset = 0;
+
+	while (offset < num.length && num[offset] === 0) {
+		offset++;
+	}
+
+	this.num = new Array(num.length - offset + shift);
+	for (var i = 0; i < num.length - offset; i++) {
+		this.num[i] = num[i + offset];
+	}
+}
+
+QRPolynomial.prototype = {
+
+	get : function(index) {
+		return this.num[index];
+	},
+	
+	getLength : function() {
+		return this.num.length;
+	},
+	
+	multiply : function(e) {
+	
+		var num = new Array(this.getLength() + e.getLength() - 1);
+	
+		for (var i = 0; i < this.getLength(); i++) {
+			for (var j = 0; j < e.getLength(); j++) {
+				num[i + j] ^= QRMath.gexp(QRMath.glog(this.get(i) ) + QRMath.glog(e.get(j) ) );
+			}
+		}
+	
+		return new QRPolynomial(num, 0);
+	},
+	
+	mod : function(e) {
+	
+		if (this.getLength() - e.getLength() < 0) {
+			return this;
+		}
+	
+		var ratio = QRMath.glog(this.get(0) ) - QRMath.glog(e.get(0) );
+	
+		var num = new Array(this.getLength() );
+		
+		for (var i = 0; i < this.getLength(); i++) {
+			num[i] = this.get(i);
+		}
+		
+		for (var x = 0; x < e.getLength(); x++) {
+			num[x] ^= QRMath.gexp(QRMath.glog(e.get(x) ) + ratio);
+		}
+	
+		// recursive call
+		return new QRPolynomial(num, 0).mod(e);
+	}
+};
+
+module.exports = QRPolynomial;
+
+};
+__m["QRRSBlock"]=function(module,exports,require){var QRErrorCorrectLevel = require('./QRErrorCorrectLevel');
+
+function QRRSBlock(totalCount, dataCount) {
+	this.totalCount = totalCount;
+	this.dataCount  = dataCount;
+}
+
+QRRSBlock.RS_BLOCK_TABLE = [
+
+	// L
+	// M
+	// Q
+	// H
+
+	// 1
+	[1, 26, 19],
+	[1, 26, 16],
+	[1, 26, 13],
+	[1, 26, 9],
+	
+	// 2
+	[1, 44, 34],
+	[1, 44, 28],
+	[1, 44, 22],
+	[1, 44, 16],
+
+	// 3
+	[1, 70, 55],
+	[1, 70, 44],
+	[2, 35, 17],
+	[2, 35, 13],
+
+	// 4		
+	[1, 100, 80],
+	[2, 50, 32],
+	[2, 50, 24],
+	[4, 25, 9],
+	
+	// 5
+	[1, 134, 108],
+	[2, 67, 43],
+	[2, 33, 15, 2, 34, 16],
+	[2, 33, 11, 2, 34, 12],
+	
+	// 6
+	[2, 86, 68],
+	[4, 43, 27],
+	[4, 43, 19],
+	[4, 43, 15],
+	
+	// 7		
+	[2, 98, 78],
+	[4, 49, 31],
+	[2, 32, 14, 4, 33, 15],
+	[4, 39, 13, 1, 40, 14],
+	
+	// 8
+	[2, 121, 97],
+	[2, 60, 38, 2, 61, 39],
+	[4, 40, 18, 2, 41, 19],
+	[4, 40, 14, 2, 41, 15],
+	
+	// 9
+	[2, 146, 116],
+	[3, 58, 36, 2, 59, 37],
+	[4, 36, 16, 4, 37, 17],
+	[4, 36, 12, 4, 37, 13],
+	
+	// 10		
+	[2, 86, 68, 2, 87, 69],
+	[4, 69, 43, 1, 70, 44],
+	[6, 43, 19, 2, 44, 20],
+	[6, 43, 15, 2, 44, 16],
+
+	// 11
+	[4, 101, 81],
+	[1, 80, 50, 4, 81, 51],
+	[4, 50, 22, 4, 51, 23],
+	[3, 36, 12, 8, 37, 13],
+
+	// 12
+	[2, 116, 92, 2, 117, 93],
+	[6, 58, 36, 2, 59, 37],
+	[4, 46, 20, 6, 47, 21],
+	[7, 42, 14, 4, 43, 15],
+
+	// 13
+	[4, 133, 107],
+	[8, 59, 37, 1, 60, 38],
+	[8, 44, 20, 4, 45, 21],
+	[12, 33, 11, 4, 34, 12],
+
+	// 14
+	[3, 145, 115, 1, 146, 116],
+	[4, 64, 40, 5, 65, 41],
+	[11, 36, 16, 5, 37, 17],
+	[11, 36, 12, 5, 37, 13],
+
+	// 15
+	[5, 109, 87, 1, 110, 88],
+	[5, 65, 41, 5, 66, 42],
+	[5, 54, 24, 7, 55, 25],
+	[11, 36, 12],
+
+	// 16
+	[5, 122, 98, 1, 123, 99],
+	[7, 73, 45, 3, 74, 46],
+	[15, 43, 19, 2, 44, 20],
+	[3, 45, 15, 13, 46, 16],
+
+	// 17
+	[1, 135, 107, 5, 136, 108],
+	[10, 74, 46, 1, 75, 47],
+	[1, 50, 22, 15, 51, 23],
+	[2, 42, 14, 17, 43, 15],
+
+	// 18
+	[5, 150, 120, 1, 151, 121],
+	[9, 69, 43, 4, 70, 44],
+	[17, 50, 22, 1, 51, 23],
+	[2, 42, 14, 19, 43, 15],
+
+	// 19
+	[3, 141, 113, 4, 142, 114],
+	[3, 70, 44, 11, 71, 45],
+	[17, 47, 21, 4, 48, 22],
+	[9, 39, 13, 16, 40, 14],
+
+	// 20
+	[3, 135, 107, 5, 136, 108],
+	[3, 67, 41, 13, 68, 42],
+	[15, 54, 24, 5, 55, 25],
+	[15, 43, 15, 10, 44, 16],
+
+	// 21
+	[4, 144, 116, 4, 145, 117],
+	[17, 68, 42],
+	[17, 50, 22, 6, 51, 23],
+	[19, 46, 16, 6, 47, 17],
+
+	// 22
+	[2, 139, 111, 7, 140, 112],
+	[17, 74, 46],
+	[7, 54, 24, 16, 55, 25],
+	[34, 37, 13],
+
+	// 23
+	[4, 151, 121, 5, 152, 122],
+	[4, 75, 47, 14, 76, 48],
+	[11, 54, 24, 14, 55, 25],
+	[16, 45, 15, 14, 46, 16],
+
+	// 24
+	[6, 147, 117, 4, 148, 118],
+	[6, 73, 45, 14, 74, 46],
+	[11, 54, 24, 16, 55, 25],
+	[30, 46, 16, 2, 47, 17],
+
+	// 25
+	[8, 132, 106, 4, 133, 107],
+	[8, 75, 47, 13, 76, 48],
+	[7, 54, 24, 22, 55, 25],
+	[22, 45, 15, 13, 46, 16],
+
+	// 26
+	[10, 142, 114, 2, 143, 115],
+	[19, 74, 46, 4, 75, 47],
+	[28, 50, 22, 6, 51, 23],
+	[33, 46, 16, 4, 47, 17],
+
+	// 27
+	[8, 152, 122, 4, 153, 123],
+	[22, 73, 45, 3, 74, 46],
+	[8, 53, 23, 26, 54, 24],
+	[12, 45, 15, 28, 46, 16],
+
+	// 28
+	[3, 147, 117, 10, 148, 118],
+	[3, 73, 45, 23, 74, 46],
+	[4, 54, 24, 31, 55, 25],
+	[11, 45, 15, 31, 46, 16],
+
+	// 29
+	[7, 146, 116, 7, 147, 117],
+	[21, 73, 45, 7, 74, 46],
+	[1, 53, 23, 37, 54, 24],
+	[19, 45, 15, 26, 46, 16],
+
+	// 30
+	[5, 145, 115, 10, 146, 116],
+	[19, 75, 47, 10, 76, 48],
+	[15, 54, 24, 25, 55, 25],
+	[23, 45, 15, 25, 46, 16],
+
+	// 31
+	[13, 145, 115, 3, 146, 116],
+	[2, 74, 46, 29, 75, 47],
+	[42, 54, 24, 1, 55, 25],
+	[23, 45, 15, 28, 46, 16],
+
+	// 32
+	[17, 145, 115],
+	[10, 74, 46, 23, 75, 47],
+	[10, 54, 24, 35, 55, 25],
+	[19, 45, 15, 35, 46, 16],
+
+	// 33
+	[17, 145, 115, 1, 146, 116],
+	[14, 74, 46, 21, 75, 47],
+	[29, 54, 24, 19, 55, 25],
+	[11, 45, 15, 46, 46, 16],
+
+	// 34
+	[13, 145, 115, 6, 146, 116],
+	[14, 74, 46, 23, 75, 47],
+	[44, 54, 24, 7, 55, 25],
+	[59, 46, 16, 1, 47, 17],
+
+	// 35
+	[12, 151, 121, 7, 152, 122],
+	[12, 75, 47, 26, 76, 48],
+	[39, 54, 24, 14, 55, 25],
+	[22, 45, 15, 41, 46, 16],
+
+	// 36
+	[6, 151, 121, 14, 152, 122],
+	[6, 75, 47, 34, 76, 48],
+	[46, 54, 24, 10, 55, 25],
+	[2, 45, 15, 64, 46, 16],
+
+	// 37
+	[17, 152, 122, 4, 153, 123],
+	[29, 74, 46, 14, 75, 47],
+	[49, 54, 24, 10, 55, 25],
+	[24, 45, 15, 46, 46, 16],
+
+	// 38
+	[4, 152, 122, 18, 153, 123],
+	[13, 74, 46, 32, 75, 47],
+	[48, 54, 24, 14, 55, 25],
+	[42, 45, 15, 32, 46, 16],
+
+	// 39
+	[20, 147, 117, 4, 148, 118],
+	[40, 75, 47, 7, 76, 48],
+	[43, 54, 24, 22, 55, 25],
+	[10, 45, 15, 67, 46, 16],
+
+	// 40
+	[19, 148, 118, 6, 149, 119],
+	[18, 75, 47, 31, 76, 48],
+	[34, 54, 24, 34, 55, 25],
+	[20, 45, 15, 61, 46, 16]
+];
+
+QRRSBlock.getRSBlocks = function(typeNumber, errorCorrectLevel) {
+	
+	var rsBlock = QRRSBlock.getRsBlockTable(typeNumber, errorCorrectLevel);
+	
+	if (rsBlock === undefined) {
+		throw new Error("bad rs block @ typeNumber:" + typeNumber + "/errorCorrectLevel:" + errorCorrectLevel);
+	}
+
+	var length = rsBlock.length / 3;
+	
+	var list = [];
+	
+	for (var i = 0; i < length; i++) {
+
+		var count = rsBlock[i * 3 + 0];
+		var totalCount = rsBlock[i * 3 + 1];
+		var dataCount  = rsBlock[i * 3 + 2];
+
+		for (var j = 0; j < count; j++) {
+			list.push(new QRRSBlock(totalCount, dataCount) );	
+		}
+	}
+	
+	return list;
+};
+
+QRRSBlock.getRsBlockTable = function(typeNumber, errorCorrectLevel) {
+
+	switch(errorCorrectLevel) {
+	case QRErrorCorrectLevel.L :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+	case QRErrorCorrectLevel.M :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+	case QRErrorCorrectLevel.Q :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+	case QRErrorCorrectLevel.H :
+		return QRRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+	default :
+		return undefined;
+	}
+};
+
+module.exports = QRRSBlock;
+
+};
+__m["QRBitBuffer"]=function(module,exports,require){function QRBitBuffer() {
+	this.buffer = [];
+	this.length = 0;
+}
+
+QRBitBuffer.prototype = {
+
+	get : function(index) {
+		var bufIndex = Math.floor(index / 8);
+		return ( (this.buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+	},
+	
+	put : function(num, length) {
+		for (var i = 0; i < length; i++) {
+			this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+		}
+	},
+	
+	getLengthInBits : function() {
+		return this.length;
+	},
+	
+	putBit : function(bit) {
+	
+		var bufIndex = Math.floor(this.length / 8);
+		if (this.buffer.length <= bufIndex) {
+			this.buffer.push(0);
+		}
+	
+		if (bit) {
+			this.buffer[bufIndex] |= (0x80 >>> (this.length % 8) );
+		}
+	
+		this.length++;
+	}
+};
+
+module.exports = QRBitBuffer;
+
+};
+__m["QR8bitByte"]=function(module,exports,require){var QRMode = require('./QRMode');
+
+function QR8bitByte(data) {
+	this.mode = QRMode.MODE_8BIT_BYTE;
+	this.data = data;
+}
+
+QR8bitByte.prototype = {
+
+	getLength : function() {
+		return this.data.length;
+	},
+	
+	write : function(buffer) {
+		for (var i = 0; i < this.data.length; i++) {
+			// not JIS ...
+			buffer.put(this.data.charCodeAt(i), 8);
+		}
+	}
+};
+
+module.exports = QR8bitByte;
+
+};
+__m["QRUtil"]=function(module,exports,require){var QRMode = require('./QRMode');
+var QRPolynomial = require('./QRPolynomial');
+var QRMath = require('./QRMath');
+var QRMaskPattern = require('./QRMaskPattern');
+
+var QRUtil = {
+
+    PATTERN_POSITION_TABLE : [
+        [],
+        [6, 18],
+        [6, 22],
+        [6, 26],
+        [6, 30],
+        [6, 34],
+        [6, 22, 38],
+        [6, 24, 42],
+        [6, 26, 46],
+        [6, 28, 50],
+        [6, 30, 54],        
+        [6, 32, 58],
+        [6, 34, 62],
+        [6, 26, 46, 66],
+        [6, 26, 48, 70],
+        [6, 26, 50, 74],
+        [6, 30, 54, 78],
+        [6, 30, 56, 82],
+        [6, 30, 58, 86],
+        [6, 34, 62, 90],
+        [6, 28, 50, 72, 94],
+        [6, 26, 50, 74, 98],
+        [6, 30, 54, 78, 102],
+        [6, 28, 54, 80, 106],
+        [6, 32, 58, 84, 110],
+        [6, 30, 58, 86, 114],
+        [6, 34, 62, 90, 118],
+        [6, 26, 50, 74, 98, 122],
+        [6, 30, 54, 78, 102, 126],
+        [6, 26, 52, 78, 104, 130],
+        [6, 30, 56, 82, 108, 134],
+        [6, 34, 60, 86, 112, 138],
+        [6, 30, 58, 86, 114, 142],
+        [6, 34, 62, 90, 118, 146],
+        [6, 30, 54, 78, 102, 126, 150],
+        [6, 24, 50, 76, 102, 128, 154],
+        [6, 28, 54, 80, 106, 132, 158],
+        [6, 32, 58, 84, 110, 136, 162],
+        [6, 26, 54, 82, 110, 138, 166],
+        [6, 30, 58, 86, 114, 142, 170]
+    ],
+
+    G15 : (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0),
+    G18 : (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0),
+    G15_MASK : (1 << 14) | (1 << 12) | (1 << 10)    | (1 << 4) | (1 << 1),
+
+    getBCHTypeInfo : function(data) {
+        var d = data << 10;
+        while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) >= 0) {
+            d ^= (QRUtil.G15 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G15) ) );    
+        }
+        return ( (data << 10) | d) ^ QRUtil.G15_MASK;
+    },
+
+    getBCHTypeNumber : function(data) {
+        var d = data << 12;
+        while (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G18) >= 0) {
+            d ^= (QRUtil.G18 << (QRUtil.getBCHDigit(d) - QRUtil.getBCHDigit(QRUtil.G18) ) );    
+        }
+        return (data << 12) | d;
+    },
+
+    getBCHDigit : function(data) {
+
+        var digit = 0;
+
+        while (data !== 0) {
+            digit++;
+            data >>>= 1;
+        }
+
+        return digit;
+    },
+
+    getPatternPosition : function(typeNumber) {
+        return QRUtil.PATTERN_POSITION_TABLE[typeNumber - 1];
+    },
+
+    getMask : function(maskPattern, i, j) {
+        
+        switch (maskPattern) {
+            
+        case QRMaskPattern.PATTERN000 : return (i + j) % 2 === 0;
+        case QRMaskPattern.PATTERN001 : return i % 2 === 0;
+        case QRMaskPattern.PATTERN010 : return j % 3 === 0;
+        case QRMaskPattern.PATTERN011 : return (i + j) % 3 === 0;
+        case QRMaskPattern.PATTERN100 : return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 === 0;
+        case QRMaskPattern.PATTERN101 : return (i * j) % 2 + (i * j) % 3 === 0;
+        case QRMaskPattern.PATTERN110 : return ( (i * j) % 2 + (i * j) % 3) % 2 === 0;
+        case QRMaskPattern.PATTERN111 : return ( (i * j) % 3 + (i + j) % 2) % 2 === 0;
+
+        default :
+            throw new Error("bad maskPattern:" + maskPattern);
+        }
+    },
+
+    getErrorCorrectPolynomial : function(errorCorrectLength) {
+
+        var a = new QRPolynomial([1], 0);
+
+        for (var i = 0; i < errorCorrectLength; i++) {
+            a = a.multiply(new QRPolynomial([1, QRMath.gexp(i)], 0) );
+        }
+
+        return a;
+    },
+
+    getLengthInBits : function(mode, type) {
+
+        if (1 <= type && type < 10) {
+
+            // 1 - 9
+
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 10;
+            case QRMode.MODE_ALPHA_NUM  : return 9;
+            case QRMode.MODE_8BIT_BYTE  : return 8;
+            case QRMode.MODE_KANJI      : return 8;
+            default :
+                throw new Error("mode:" + mode);
+            }
+
+        } else if (type < 27) {
+
+            // 10 - 26
+
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 12;
+            case QRMode.MODE_ALPHA_NUM  : return 11;
+            case QRMode.MODE_8BIT_BYTE  : return 16;
+            case QRMode.MODE_KANJI      : return 10;
+            default :
+                throw new Error("mode:" + mode);
+            }
+
+        } else if (type < 41) {
+
+            // 27 - 40
+
+            switch(mode) {
+            case QRMode.MODE_NUMBER     : return 14;
+            case QRMode.MODE_ALPHA_NUM  : return 13;
+            case QRMode.MODE_8BIT_BYTE  : return 16;
+            case QRMode.MODE_KANJI      : return 12;
+            default :
+                throw new Error("mode:" + mode);
+            }
+
+        } else {
+            throw new Error("type:" + type);
+        }
+    },
+
+    getLostPoint : function(qrCode) {
+        
+        var moduleCount = qrCode.getModuleCount();
+        var lostPoint = 0;
+        var row = 0; 
+        var col = 0;
+
+        
+        // LEVEL1
+        
+        for (row = 0; row < moduleCount; row++) {
+
+            for (col = 0; col < moduleCount; col++) {
+
+                var sameCount = 0;
+                var dark = qrCode.isDark(row, col);
+
+                for (var r = -1; r <= 1; r++) {
+
+                    if (row + r < 0 || moduleCount <= row + r) {
+                        continue;
+                    }
+
+                    for (var c = -1; c <= 1; c++) {
+
+                        if (col + c < 0 || moduleCount <= col + c) {
+                            continue;
+                        }
+
+                        if (r === 0 && c === 0) {
+                            continue;
+                        }
+
+                        if (dark === qrCode.isDark(row + r, col + c) ) {
+                            sameCount++;
+                        }
+                    }
+                }
+
+                if (sameCount > 5) {
+                    lostPoint += (3 + sameCount - 5);
+                }
+            }
+        }
+
+        // LEVEL2
+
+        for (row = 0; row < moduleCount - 1; row++) {
+            for (col = 0; col < moduleCount - 1; col++) {
+                var count = 0;
+                if (qrCode.isDark(row,     col    ) ) count++;
+                if (qrCode.isDark(row + 1, col    ) ) count++;
+                if (qrCode.isDark(row,     col + 1) ) count++;
+                if (qrCode.isDark(row + 1, col + 1) ) count++;
+                if (count === 0 || count === 4) {
+                    lostPoint += 3;
+                }
+            }
+        }
+
+        // LEVEL3
+
+        for (row = 0; row < moduleCount; row++) {
+            for (col = 0; col < moduleCount - 6; col++) {
+                if (qrCode.isDark(row, col) && 
+                        !qrCode.isDark(row, col + 1) && 
+                         qrCode.isDark(row, col + 2) && 
+                         qrCode.isDark(row, col + 3) && 
+                         qrCode.isDark(row, col + 4) && 
+                        !qrCode.isDark(row, col + 5) && 
+                         qrCode.isDark(row, col + 6) ) {
+                    lostPoint += 40;
+                }
+            }
+        }
+
+        for (col = 0; col < moduleCount; col++) {
+            for (row = 0; row < moduleCount - 6; row++) {
+                if (qrCode.isDark(row, col) &&
+                        !qrCode.isDark(row + 1, col) &&
+                         qrCode.isDark(row + 2, col) &&
+                         qrCode.isDark(row + 3, col) &&
+                         qrCode.isDark(row + 4, col) &&
+                        !qrCode.isDark(row + 5, col) &&
+                         qrCode.isDark(row + 6, col) ) {
+                    lostPoint += 40;
+                }
+            }
+        }
+
+        // LEVEL4
+        
+        var darkCount = 0;
+
+        for (col = 0; col < moduleCount; col++) {
+            for (row = 0; row < moduleCount; row++) {
+                if (qrCode.isDark(row, col) ) {
+                    darkCount++;
+                }
+            }
+        }
+        
+        var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+        lostPoint += ratio * 10;
+
+        return lostPoint;       
+    }
+
+};
+
+module.exports = QRUtil;
+
+};
+__m["index"]=function(module,exports,require){
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var QR8bitByte = require('./QR8bitByte');
+var QRUtil = require('./QRUtil');
+var QRPolynomial = require('./QRPolynomial');
+var QRRSBlock = require('./QRRSBlock');
+var QRBitBuffer = require('./QRBitBuffer');
+
+function QRCode(typeNumber, errorCorrectLevel) {
+	this.typeNumber = typeNumber;
+	this.errorCorrectLevel = errorCorrectLevel;
+	this.modules = null;
+	this.moduleCount = 0;
+	this.dataCache = null;
+	this.dataList = [];
+}
+
+QRCode.prototype = {
+	
+	addData : function(data) {
+		var newData = new QR8bitByte(data);
+		this.dataList.push(newData);
+		this.dataCache = null;
+	},
+	
+	isDark : function(row, col) {
+		if (row < 0 || this.moduleCount <= row || col < 0 || this.moduleCount <= col) {
+			throw new Error(row + "," + col);
+		}
+		return this.modules[row][col];
+	},
+
+	getModuleCount : function() {
+		return this.moduleCount;
+	},
+	
+	make : function() {
+		// Calculate automatically typeNumber if provided is < 1
+		if (this.typeNumber < 1 ){
+			var typeNumber = 1;
+			for (typeNumber = 1; typeNumber < 40; typeNumber++) {
+				var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, this.errorCorrectLevel);
+
+				var buffer = new QRBitBuffer();
+				var totalDataCount = 0;
+				for (var i = 0; i < rsBlocks.length; i++) {
+					totalDataCount += rsBlocks[i].dataCount;
+				}
+
+				for (var x = 0; x < this.dataList.length; x++) {
+					var data = this.dataList[x];
+					buffer.put(data.mode, 4);
+					buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) );
+					data.write(buffer);
+				}
+				if (buffer.getLengthInBits() <= totalDataCount * 8)
+					break;
+			}
+			this.typeNumber = typeNumber;
+		}
+		this.makeImpl(false, this.getBestMaskPattern() );
+	},
+	
+	makeImpl : function(test, maskPattern) {
+		
+		this.moduleCount = this.typeNumber * 4 + 17;
+		this.modules = new Array(this.moduleCount);
+		
+		for (var row = 0; row < this.moduleCount; row++) {
+			
+			this.modules[row] = new Array(this.moduleCount);
+			
+			for (var col = 0; col < this.moduleCount; col++) {
+				this.modules[row][col] = null;//(col + row) % 3;
+			}
+		}
+	
+		this.setupPositionProbePattern(0, 0);
+		this.setupPositionProbePattern(this.moduleCount - 7, 0);
+		this.setupPositionProbePattern(0, this.moduleCount - 7);
+		this.setupPositionAdjustPattern();
+		this.setupTimingPattern();
+		this.setupTypeInfo(test, maskPattern);
+		
+		if (this.typeNumber >= 7) {
+			this.setupTypeNumber(test);
+		}
+	
+		if (this.dataCache === null) {
+			this.dataCache = QRCode.createData(this.typeNumber, this.errorCorrectLevel, this.dataList);
+		}
+	
+		this.mapData(this.dataCache, maskPattern);
+	},
+
+	setupPositionProbePattern : function(row, col)  {
+		
+		for (var r = -1; r <= 7; r++) {
+			
+			if (row + r <= -1 || this.moduleCount <= row + r) continue;
+			
+			for (var c = -1; c <= 7; c++) {
+				
+				if (col + c <= -1 || this.moduleCount <= col + c) continue;
+				
+				if ( (0 <= r && r <= 6 && (c === 0 || c === 6) ) || 
+                     (0 <= c && c <= 6 && (r === 0 || r === 6) ) || 
+                     (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+					this.modules[row + r][col + c] = true;
+				} else {
+					this.modules[row + r][col + c] = false;
+				}
+			}		
+		}		
+	},
+	
+	getBestMaskPattern : function() {
+	
+		var minLostPoint = 0;
+		var pattern = 0;
+	
+		for (var i = 0; i < 8; i++) {
+			
+			this.makeImpl(true, i);
+	
+			var lostPoint = QRUtil.getLostPoint(this);
+	
+			if (i === 0 || minLostPoint >  lostPoint) {
+				minLostPoint = lostPoint;
+				pattern = i;
+			}
+		}
+	
+		return pattern;
+	},
+	
+	createMovieClip : function(target_mc, instance_name, depth) {
+	
+		var qr_mc = target_mc.createEmptyMovieClip(instance_name, depth);
+		var cs = 1;
+	
+		this.make();
+
+		for (var row = 0; row < this.modules.length; row++) {
+			
+			var y = row * cs;
+			
+			for (var col = 0; col < this.modules[row].length; col++) {
+	
+				var x = col * cs;
+				var dark = this.modules[row][col];
+			
+				if (dark) {
+					qr_mc.beginFill(0, 100);
+					qr_mc.moveTo(x, y);
+					qr_mc.lineTo(x + cs, y);
+					qr_mc.lineTo(x + cs, y + cs);
+					qr_mc.lineTo(x, y + cs);
+					qr_mc.endFill();
+				}
+			}
+		}
+		
+		return qr_mc;
+	},
+
+	setupTimingPattern : function() {
+		
+		for (var r = 8; r < this.moduleCount - 8; r++) {
+			if (this.modules[r][6] !== null) {
+				continue;
+			}
+			this.modules[r][6] = (r % 2 === 0);
+		}
+	
+		for (var c = 8; c < this.moduleCount - 8; c++) {
+			if (this.modules[6][c] !== null) {
+				continue;
+			}
+			this.modules[6][c] = (c % 2 === 0);
+		}
+	},
+	
+	setupPositionAdjustPattern : function() {
+	
+		var pos = QRUtil.getPatternPosition(this.typeNumber);
+		
+		for (var i = 0; i < pos.length; i++) {
+		
+			for (var j = 0; j < pos.length; j++) {
+			
+				var row = pos[i];
+				var col = pos[j];
+				
+				if (this.modules[row][col] !== null) {
+					continue;
+				}
+				
+				for (var r = -2; r <= 2; r++) {
+				
+					for (var c = -2; c <= 2; c++) {
+					
+						if (Math.abs(r) === 2 || 
+                            Math.abs(c) === 2 ||
+                            (r === 0 && c === 0) ) {
+							this.modules[row + r][col + c] = true;
+						} else {
+							this.modules[row + r][col + c] = false;
+						}
+					}
+				}
+			}
+		}
+	},
+	
+	setupTypeNumber : function(test) {
+	
+		var bits = QRUtil.getBCHTypeNumber(this.typeNumber);
+        var mod;
+	
+		for (var i = 0; i < 18; i++) {
+			mod = (!test && ( (bits >> i) & 1) === 1);
+			this.modules[Math.floor(i / 3)][i % 3 + this.moduleCount - 8 - 3] = mod;
+		}
+	
+		for (var x = 0; x < 18; x++) {
+			mod = (!test && ( (bits >> x) & 1) === 1);
+			this.modules[x % 3 + this.moduleCount - 8 - 3][Math.floor(x / 3)] = mod;
+		}
+	},
+	
+	setupTypeInfo : function(test, maskPattern) {
+	
+		var data = (this.errorCorrectLevel << 3) | maskPattern;
+		var bits = QRUtil.getBCHTypeInfo(data);
+        var mod;
+	
+		// vertical		
+		for (var v = 0; v < 15; v++) {
+	
+			mod = (!test && ( (bits >> v) & 1) === 1);
+	
+			if (v < 6) {
+				this.modules[v][8] = mod;
+			} else if (v < 8) {
+				this.modules[v + 1][8] = mod;
+			} else {
+				this.modules[this.moduleCount - 15 + v][8] = mod;
+			}
+		}
+	
+		// horizontal
+		for (var h = 0; h < 15; h++) {
+	
+			mod = (!test && ( (bits >> h) & 1) === 1);
+			
+			if (h < 8) {
+				this.modules[8][this.moduleCount - h - 1] = mod;
+			} else if (h < 9) {
+				this.modules[8][15 - h - 1 + 1] = mod;
+			} else {
+				this.modules[8][15 - h - 1] = mod;
+			}
+		}
+	
+		// fixed module
+		this.modules[this.moduleCount - 8][8] = (!test);
+	
+	},
+	
+	mapData : function(data, maskPattern) {
+		
+		var inc = -1;
+		var row = this.moduleCount - 1;
+		var bitIndex = 7;
+		var byteIndex = 0;
+		
+		for (var col = this.moduleCount - 1; col > 0; col -= 2) {
+	
+			if (col === 6) col--;
+	
+			while (true) {
+	
+				for (var c = 0; c < 2; c++) {
+					
+					if (this.modules[row][col - c] === null) {
+						
+						var dark = false;
+	
+						if (byteIndex < data.length) {
+							dark = ( ( (data[byteIndex] >>> bitIndex) & 1) === 1);
+						}
+	
+						var mask = QRUtil.getMask(maskPattern, row, col - c);
+	
+						if (mask) {
+							dark = !dark;
+						}
+						
+						this.modules[row][col - c] = dark;
+						bitIndex--;
+	
+						if (bitIndex === -1) {
+							byteIndex++;
+							bitIndex = 7;
+						}
+					}
+				}
+								
+				row += inc;
+	
+				if (row < 0 || this.moduleCount <= row) {
+					row -= inc;
+					inc = -inc;
+					break;
+				}
+			}
+		}
+		
+	}
+
+};
+
+QRCode.PAD0 = 0xEC;
+QRCode.PAD1 = 0x11;
+
+QRCode.createData = function(typeNumber, errorCorrectLevel, dataList) {
+	
+	var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectLevel);
+	
+	var buffer = new QRBitBuffer();
+	
+	for (var i = 0; i < dataList.length; i++) {
+		var data = dataList[i];
+		buffer.put(data.mode, 4);
+		buffer.put(data.getLength(), QRUtil.getLengthInBits(data.mode, typeNumber) );
+		data.write(buffer);
+	}
+
+	// calc num max data.
+	var totalDataCount = 0;
+	for (var x = 0; x < rsBlocks.length; x++) {
+		totalDataCount += rsBlocks[x].dataCount;
+	}
+
+	if (buffer.getLengthInBits() > totalDataCount * 8) {
+		throw new Error("code length overflow. (" + 
+            buffer.getLengthInBits() + 
+            ">" +  
+            totalDataCount * 8 + 
+            ")");
+	}
+
+	// end code
+	if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+		buffer.put(0, 4);
+	}
+
+	// padding
+	while (buffer.getLengthInBits() % 8 !== 0) {
+		buffer.putBit(false);
+	}
+
+	// padding
+	while (true) {
+		
+		if (buffer.getLengthInBits() >= totalDataCount * 8) {
+			break;
+		}
+		buffer.put(QRCode.PAD0, 8);
+		
+		if (buffer.getLengthInBits() >= totalDataCount * 8) {
+			break;
+		}
+		buffer.put(QRCode.PAD1, 8);
+	}
+
+	return QRCode.createBytes(buffer, rsBlocks);
+};
+
+QRCode.createBytes = function(buffer, rsBlocks) {
+
+	var offset = 0;
+	
+	var maxDcCount = 0;
+	var maxEcCount = 0;
+	
+	var dcdata = new Array(rsBlocks.length);
+	var ecdata = new Array(rsBlocks.length);
+	
+	for (var r = 0; r < rsBlocks.length; r++) {
+
+		var dcCount = rsBlocks[r].dataCount;
+		var ecCount = rsBlocks[r].totalCount - dcCount;
+
+		maxDcCount = Math.max(maxDcCount, dcCount);
+		maxEcCount = Math.max(maxEcCount, ecCount);
+		
+		dcdata[r] = new Array(dcCount);
+		
+		for (var i = 0; i < dcdata[r].length; i++) {
+			dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+		}
+		offset += dcCount;
+		
+		var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+		var rawPoly = new QRPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+		var modPoly = rawPoly.mod(rsPoly);
+		ecdata[r] = new Array(rsPoly.getLength() - 1);
+		for (var x = 0; x < ecdata[r].length; x++) {
+            var modIndex = x + modPoly.getLength() - ecdata[r].length;
+			ecdata[r][x] = (modIndex >= 0)? modPoly.get(modIndex) : 0;
+		}
+
+	}
+	
+	var totalCodeCount = 0;
+	for (var y = 0; y < rsBlocks.length; y++) {
+		totalCodeCount += rsBlocks[y].totalCount;
+	}
+
+	var data = new Array(totalCodeCount);
+	var index = 0;
+
+	for (var z = 0; z < maxDcCount; z++) {
+		for (var s = 0; s < rsBlocks.length; s++) {
+			if (z < dcdata[s].length) {
+				data[index++] = dcdata[s][z];
+			}
+		}
+	}
+
+	for (var xx = 0; xx < maxEcCount; xx++) {
+		for (var t = 0; t < rsBlocks.length; t++) {
+			if (xx < ecdata[t].length) {
+				data[index++] = ecdata[t][xx];
+			}
+		}
+	}
+
+	return data;
+
+};
+
+module.exports = QRCode;
+
+};
+return {QRCode:__req("index"),L:__req("QRErrorCorrectLevel").L,M:__req("QRErrorCorrectLevel").M};})();
+</script>
+<script>
+if(/[?&]lite/.test(location.search))document.body.classList.add('lite');
+const API='https://phimapi.com', IMG='https://phimimg.com/';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const img=u=>!u?'':/^https?:/.test(u)?u:IMG+u.replace(/^\//,'');
+const items=j=>j.items||(j.data&&j.data.items)||[];
+async function get(p){const r=await fetch(API+p);if(!r.ok)throw new Error(r.status);return r.json();}
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const fmt=t=>{if(!isFinite(t))t=0;t=Math.floor(t);const p=n=>String(n).padStart(2,'0'),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return(h?p(h)+':':'')+p(m)+':'+p(s);};
+const epName=n=>/^t[ậa]p/i.test(n)?n:'Tập '+n;
+const DET=new Map();
+function detail(slug){
+  if(!DET.has(slug))DET.set(slug,get('/phim/'+encodeURIComponent(slug)).catch(()=>{DET.delete(slug);return null;}));
+  return DET.get(slug);
+}
+function tick(){const d=new Date();$('#clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+tick();setInterval(tick,20000);
+
+const APP=$('#app');
+let MOBILE=false;
+function detectMobile(){MOBILE=true;document.documentElement.classList.add('mobile');}
+function fit(){detectMobile();if(MOBILE){APP.style.transform='';return;}const sc=Math.min(innerWidth/1920,innerHeight/1080);APP.style.transform='translate('+(innerWidth-1920*sc)/2+'px,'+(innerHeight-1080*sc)/2+'px) scale('+sc+')';}
+fit();addEventListener('resize',fit);
+function toggleFs(){const d=document,el=d.documentElement;if(d.fullscreenElement){d.exitFullscreen();}else if(el.requestFullscreen){el.requestFullscreen().catch(()=>{});}}
+const ROWGO=['phim-bo','phim-le','','quoc-gia:au-my','quoc-gia:han-quoc','quoc-gia:trung-quoc','quoc-gia:nhat-ban','quoc-gia:viet-nam','phim-bo','phim-le','hoat-hinh','tv-shows'];
+const Q='?page=1&limit=20',QV='?page=1&limit=20&sort_field=view&sort_type=desc';
+const ROWS=[
+  ['Phim mới nhất','/danh-sach/phim-moi-cap-nhat?page=1'],
+  ['Phim nổi bật','/v1/api/danh-sach/phim-le'+QV],
+  ['Top 10 phim','/v1/api/danh-sach/phim-bo'+QV,'top'],
+  ['Phim Âu Mỹ','/v1/api/quoc-gia/au-my'+Q],
+  ['Phim Hàn Quốc','/v1/api/quoc-gia/han-quoc'+Q],
+  ['Phim Trung Quốc','/v1/api/quoc-gia/trung-quoc'+Q],
+  ['Phim Nhật Bản','/v1/api/quoc-gia/nhat-ban'+Q],
+  ['Phim Việt Nam','/v1/api/quoc-gia/viet-nam'+Q],
+  ['Phim bộ mới','/v1/api/danh-sach/phim-bo'+Q],
+  ['Phim lẻ mới','/v1/api/danh-sach/phim-le'+Q],
+  ['Hoạt hình','/v1/api/danh-sach/hoat-hinh'+Q],
+  ['TV Shows','/v1/api/danh-sach/tv-shows'+Q]
+];
+const TITLES={'the-loai':'Thể loại','phim-bo':'Phim bộ','phim-le':'Phim lẻ','hoat-hinh':'Hoạt hình','tv-shows':'TV Shows'};
+function badges(m){
+  const l=(m.lang||'').toLowerCase(),e=m.episode_current||'',n=(e.match(/\d+/)||[''])[0],o=[];
+  if(l.includes('vietsub')||l.includes('phụ đề'))o.push(`<span class="bd">PĐ${n?'. '+n:''}</span>`);
+  if(l.includes('thuyết minh')||l.includes('lồng tiếng'))o.push(`<span class="bd tm">TM${n?'. '+n:''}</span>`);
+  if(!o.length&&e)o.push(`<span class="bd">${esc(e)}</span>`);
+  return o.length?`<div class="bds">${o.join('')}</div>`:'';
+}
+const cardHTML=(m,rank,land)=>{
+  const port=MOBILE&&!land,src=img(port?(m.thumb_url||m.poster_url):(m.poster_url||m.thumb_url));
+  return `<div class="card${rank?' ranked':''}${land?' land':''}" tabindex="0" data-slug="${esc(m.slug)}" data-name="${esc(m.name)}" data-orig="${esc(m.origin_name||'')}" data-meta="${esc([m.year,m.episode_current,m.quality].filter(Boolean).join(' • '))}" data-bg="${esc(img(m.poster_url||m.thumb_url))}"><div class="pw"><img class="p" loading="lazy" src="${esc(src)}" alt="">${badges(m)}${land?'<span class="playic"></span>':''}${land&&m.pct?`<div class="prog"><i style="width:${Math.min(100,m.pct)}%"></i></div>`:''}</div><div class="t">${esc(m.name)}</div>${rank?`<span class="rank${rank>9?' two':''}">${rank}</span>`:''}</div>`;
+};
+
+/* ---------- nền + thông tin phim bên trái ---------- */
+let bgT=null,bgCur='',heroSlug='',hT=null,lastCard=null;
+function setBg(u){if(!u||u===bgCur)return;bgCur=u;const b=$('#bg');b.classList.add('fade');setTimeout(()=>{b.style.backgroundImage=`url("${u}")`;b.classList.remove('fade');},180);}
+let MB=[],mbi=0,mbT=null;
+function mbShow(i){
+  if(!MB.length)return;mbi=(i+MB.length)%MB.length;const m=MB[mbi];heroSlug=m.slug;
+  $('#h-t').textContent=m.name;$('#h-m').textContent=[m.year,m.lang,m.episode_current].filter(Boolean).join(' • ');
+  $('#hero').style.backgroundImage='url("'+img(m.thumb_url||m.poster_url)+'")';
+  $('#hdots').innerHTML=MB.map((_,k)=>'<i class="'+(k===mbi?'on':'')+'"></i>').join('');updateFavUI();
+}
+function mbStart(){
+  clearInterval(mbT);if(!MOBILE||!MB.length)return;mbShow(0);
+  mbT=setInterval(()=>{if(!$('#home').hidden&&$('#player').hidden)mbShow(mbi+1);},5500);
+}
+(function(){
+  const h=$('#hero');let x0=null;
+  h.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;},{passive:true});
+  h.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(MOBILE&&Math.abs(dx)>45){mbShow(mbi+(dx<0?1:-1));mbStart2();}},{passive:true});
+  h.addEventListener('click',e=>{if(MOBILE&&!e.target.closest('.hb')&&heroSlug)openDetail(heroSlug);});
+})();
+function mbStart2(){clearInterval(mbT);mbT=setInterval(()=>{if(!$('#home').hidden&&$('#player').hidden)mbShow(mbi+1);},5500);}
+function heroFill(c){
+  if(MOBILE)return;
+  heroSlug=c.dataset.slug;updateFavUI();
+  $('#h-t').textContent=c.dataset.name||'';$('#h-o').textContent=c.dataset.orig||'';$('#h-m').textContent=c.dataset.meta||'';
+  $('#h-g').textContent='';$('#h-d').textContent='';
+  setBg(c.dataset.bg);
+  const slug=heroSlug;clearTimeout(hT);
+  hT=setTimeout(async()=>{
+    const j=await detail(slug);if(heroSlug!==slug||!j||!j.movie)return;const m=j.movie;
+    $('#h-m').textContent=[m.year,m.time,m.episode_total?m.episode_total+' tập':m.episode_current,m.quality].filter(Boolean).join(' • ');
+    const g=(m.category||[]).map(x=>x.name).slice(0,5);
+    $('#h-g').innerHTML=badges(m)+(g.length?`<span>${esc(g.join(' • '))}</span>`:'');
+    $('#h-d').textContent=String(m.content||'').replace(/<[^>]*>/g,'');
+  },350);
+}
+document.addEventListener('focusin',e=>{
+  const c=e.target.closest&&e.target.closest('.card');if(!c)return;
+  clearTimeout(bgT);
+  if($('#home').contains(c)){lastCard=c;bgT=setTimeout(()=>heroFill(c),120);}
+  else bgT=setTimeout(()=>setBg(c.dataset.bg),200);
+});
+document.addEventListener('mouseover',e=>{const t=e.target.closest&&e.target.closest('[tabindex]');if(t&&t!==document.activeElement&&$('#kb').hidden&&$('#player').hidden)t.focus({preventScroll:true});});
+
+/* ---------- điều hướng màn hình ---------- */
+const stack=[];
+const VIEWS=['home','list','detail','me'];
+function show(id){VIEWS.forEach(v=>$('#'+v).hidden=v!==id);document.body.dataset.v=id;}
+function curView(){return VIEWS.find(v=>!$('#'+v).hidden);}
+function setNav(k){document.querySelectorAll('.nav[data-go],.tab[data-go]').forEach(n=>n.classList.toggle('on',n.dataset.go===k));document.querySelectorAll('.tab[data-tab]').forEach(t=>t.classList.remove('on'));}
+function focusFirst(root){const e=root.querySelector('[tabindex]');if(e)e.focus({preventScroll:true});}
+
+let ROWDATA=null,dirty=false;
+function renderRows(){
+  const rows=[],hist=getL('hist').slice(0,12);
+  if(hist.length)rows.push({title:'Xem tiếp',html:hist.map(h=>cardHTML(Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')}),0,true)).join('')});
+  ROWDATA.forEach(r=>rows.push({title:r.title,go:r.go,html:r.items.map((m,i)=>cardHTML(m,r.top?i+1:0)).join('')}));
+  $('#rows').innerHTML=rows.map((r,i)=>`<section class="row" data-i="${i}"><h2><span>${esc(r.title)}</span>${r.go?`<span class="chev" tabindex="0" data-rowgo="${esc(r.go)}">›</span>`:''}</h2><div class="track">${r.html}</div></section>`).join('');
+  dirty=false;
+}
+function ensureVisible(c){
+  const row=c.closest('.row'),tr=c.closest('.track');if(!row||!tr)return;
+  $('#rowsWrap').scrollTop=row.offsetTop;
+  tr.scrollLeft=Math.max(0,c.offsetLeft-80);
+}
+async function loadHome(focusHero){
+  show('home');setNav('home');
+  const focus=()=>{if(focusHero&&!MOBILE)$('[data-h="play"]').focus({preventScroll:true});};
+  if(ROWDATA){if(dirty)renderRows();focus();if(MOBILE)mbStart();return;}
+  $('#rows').innerHTML='<div id="msg">Đang tải...</div>';
+  const res=await Promise.allSettled(ROWS.map(r=>get(r[1])));
+  ROWDATA=[];
+  res.forEach((r,i)=>{if(r.status==='fulfilled'){const top=ROWS[i][2]==='top',it=items(r.value).slice(0,top?10:20);if(it.length)ROWDATA.push({title:ROWS[i][0],items:it,top:top,go:ROWGO[i]||''});}});
+  if(!ROWDATA.length){ROWDATA=null;$('#rows').innerHTML='<div id="msg">Không tải được dữ liệu. Kiểm tra mạng rồi thử lại.</div>';return;}
+  renderRows();
+  const f=$('#rows .card');if(f)heroFill(f);
+  MB=(ROWDATA[0]&&ROWDATA[0].items||[]).filter(m=>m.thumb_url||m.poster_url).slice(0,7);mbStart();if(MOBILE)$('#home').scrollTop=0;
+  focus();
+}
+
+const ANIME=[['all','Tất cả'],['nhat-ban','Anime Nhật Bản'],['trung-quoc','Trung Quốc'],['han-quoc','Hàn Quốc'],['au-my','Âu Mỹ']];
+let L={kind:'',page:1,q:'',country:'',cf:'all'};
+let GENRES=null,COUNTRIES=null;
+async function loadGenre(slug,append,type){
+  show('list');setNav('the-loai');
+  type=type||(L&&L.kind==='genre'&&L.type)||'the-loai';
+  if(!GENRES||!COUNTRIES){
+    const [g,c]=await Promise.all([get('/the-loai').catch(()=>[]),get('/quoc-gia').catch(()=>[])]);
+    const ls=j=>(Array.isArray(j)?j:items(j)).filter(x=>x&&x.slug);
+    GENRES=ls(g);COUNTRIES=ls(c);
+    if(!GENRES.length&&!COUNTRIES.length){GENRES=COUNTRIES=null;$('#lt').textContent='Thể loại';$('#chips').innerHTML='';$('#grid').innerHTML='<div id="msg">Không tải được danh sách thể loại.</div>';$('#more').hidden=true;return;}
+  }
+  const list=type==='quoc-gia'?COUNTRIES:GENRES;
+  if(!slug){const d=type==='quoc-gia'?'han-quoc':'hanh-dong';slug=((list.find(x=>x.slug===d))||list[0]||{}).slug;}
+  if(!slug)return;
+  if(!append){
+    L={kind:'genre',type:type,q:'',page:1,slug:slug,country:'',cf:'all'};
+    const cur=list.find(x=>x.slug===slug);
+    $('#lt').textContent=(type==='quoc-gia'?'Quốc gia':'Thể loại phim')+(cur?': '+cur.name:'');$('#grid').innerHTML='';$('#list').scrollTop=0;
+    const chip=(x,t)=>`<span class="ep glass ${t===type&&x.slug===slug?'cur':''}" tabindex="0" data-ct="${t}" data-genre="${esc(x.slug)}">${esc(x.name)}</span>`;
+    $('#chips').innerHTML=(GENRES.length?'<div class="grp">Thể loại phim</div>'+GENRES.map(x=>chip(x,'the-loai')).join(''):'')+(COUNTRIES.length?'<div class="grp">Quốc gia</div>'+COUNTRIES.map(x=>chip(x,'quoc-gia')).join(''):'');
+  }else L.page++;
+  try{
+    const j=await get(`/v1/api/${type}/${encodeURIComponent(slug)}?page=${L.page}&limit=24`),it=items(j);
+    $('#grid').insertAdjacentHTML('beforeend',it.map(m=>cardHTML(m)).join(''));
+    const pg=(j.data&&j.data.params&&j.data.params.pagination)||j.pagination||{};
+    const tp=pg.totalPages||(pg.totalItems&&pg.totalItemsPerPage?Math.ceil(pg.totalItems/pg.totalItemsPerPage):L.page+(it.length>=24?1:0));
+    $('#more').hidden=!(L.page<tp&&it.length);
+    if(!it.length&&!append)$('#grid').innerHTML='<div id="msg">Chưa có phim trong mục này.</div>';
+    if(!append){const c=$('#chips .ep.cur');if(c)c.focus({preventScroll:true});else focusFirst($('#chips'));}
+  }catch(e){$('#grid').insertAdjacentHTML('beforeend','<div id="msg">Lỗi tải danh sách.</div>');}
+}
+async function loadList(kind,q,append,country){
+  show('list');
+  const fromChip=country!==undefined;
+  if(!append){
+    L={kind,q,page:1,country:country&&country!=='all'?country:'',cf:country||'all'};
+    $('#grid').innerHTML='';$('#lt').textContent=q?`Kết quả: ${q}`:TITLES[kind];setNav(q?'':kind);$('#list').scrollTop=0;
+    $('#chips').innerHTML=(kind==='hoat-hinh'&&!q)?ANIME.map(a=>`<span class="ep glass ${a[0]===L.cf?'cur':''}" tabindex="0" data-cf="${a[0]}">${a[1]}</span>`).join(''):'';
+  }
+  else L.page++;
+  const path=q?`/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}&page=${L.page}&limit=24`:`/v1/api/danh-sach/${kind}?page=${L.page}&limit=24${L.country?'&country='+L.country:''}`;
+  try{
+    const j=await get(path),it=items(j);
+    $('#grid').insertAdjacentHTML('beforeend',it.map(m=>cardHTML(m)).join(''));
+    const pg=(j.data&&j.data.params&&j.data.params.pagination)||j.pagination||{};
+    const tp=pg.totalPages||(pg.totalItems&&pg.totalItemsPerPage?Math.ceil(pg.totalItems/pg.totalItemsPerPage):L.page+(it.length>=24?1:0));
+    $('#more').hidden=!(L.page<tp&&it.length);
+    if(!it.length&&!append)$('#grid').innerHTML='<div id="msg">Không tìm thấy phim phù hợp.</div>';
+    if(!append){const c=fromChip&&$('#chips [data-cf="'+L.cf+'"]');if(c)c.focus({preventScroll:true});else focusFirst($('#grid'));}
+  }catch(e){$('#grid').insertAdjacentHTML('beforeend','<div id="msg">Lỗi tải danh sách.</div>');}
+}
+
+/* ---------- chi tiết ---------- */
+let M=null,EPS=[],SV=0,EI=0;
+async function openDetail(slug,autoplay){
+  stack.push({v:curView(),el:document.activeElement});show('detail');
+  const d=$('#detail');d.innerHTML='<div id="msg">Đang tải...</div>';d.scrollTop=0;
+  const j=await detail(slug);
+  if(!j||!j.movie){d.innerHTML='<div id="msg">Không tải được phim này. Bấm Back để quay lại.</div>';return;}
+  M=j.movie;EPS=(j.episodes||[]).filter(s=>s.server_data&&s.server_data.length);SV=0;EI=0;
+  const hh=getL('hist').find(x=>x.slug===slug)||(function(){const l=store.get('last',null);return l&&l.slug===slug?l:null;})();
+  if(hh){SV=Math.min(hh.sv||0,Math.max(EPS.length-1,0));EI=Math.min(hh.ei||0,Math.max(((EPS[SV]||{server_data:[]}).server_data.length)-1,0));}
+  setBg(img(M.poster_url||M.thumb_url));
+  renderDetail();
+  if(autoplay&&EPS.length)play();
+}
+function renderDetail(){
+  const m=M,d=$('#detail');
+  const txt=String(m.content||'').replace(/<[^>]*>/g,'');
+  const cur=EPS[SV]&&EPS[SV].server_data[EI];
+  const g=(m.category||[]).map(x=>x.name).slice(0,5);
+  const servers=EPS.length>1?`<div class="eps">${EPS.map((s,i)=>`<span class="ep glass ${i===SV?'cur':''}" tabindex="0" data-sv="${i}">${esc(s.server_name)}</span>`).join('')}</div>`:'';
+  const eps=EPS[SV]?EPS[SV].server_data.map((e,i)=>`<span class="ep glass ${i===EI?'cur':''}" tabindex="0" data-ei="${i}">${esc(e.name)}</span>`).join(''):'<div style="color:var(--mute)">Chưa có tập phim.</div>';
+  d.innerHTML=`<div class="dhero glass"><h1>${esc(m.name)}</h1><div id="h-o" style="margin-top:.5rem">${esc(m.origin_name||'')}</div>
+    <div id="h-m">${esc([m.year,m.time,m.episode_total?m.episode_total+' tập':m.episode_current,m.quality].filter(Boolean).join(' • '))}</div>
+    <div id="h-g" style="display:flex">${badges(m)}${g.length?`<span>${esc(g.join(' • '))}</span>`:''}</div>
+    <div class="desc">${esc(txt)}</div>
+    <div class="hbtns">${cur?`<span class="hb main" tabindex="0" id="playbtn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>Xem ${esc(epName(cur.name))}</span>`:''}${favBtn(m.slug)}<span class="hb" tabindex="0" id="backbtn">Quay lại</span></div></div>
+    <h2 style="margin-top:2rem">Tập phim</h2>${servers}<div class="eps">${eps}</div>`;
+  const b=$('#playbtn')||$('#backbtn');if(b)b.focus({preventScroll:true});
+}
+
+/* ---------- trình phát ---------- */
+const SK='<svg viewBox="0 0 24 24">';
+const ICON={
+  play:SK+'<path d="M8 5v14l11-7z"/></svg>',
+  pause:SK+'<path d="M6 5h4.2v14H6zM13.8 5H18v14h-4.2z"/></svg>',
+  back:SK+'<path d="M11 6v12L2 12zM21 6v12l-9-6z"/></svg>',
+  fwd:SK+'<path d="M3 6v12l9-6zM13 6v12l9-6z"/></svg>'
+};
+const R0=['exit','settings'],R1=['bar'],R2=['prev','back','toggle','fwd','next'];
+const rowFor=a=>R0.includes(a)?R0:R1.includes(a)?R1:R2;
+$('#cbtns').innerHTML=[['back','Lùi 10 giây',''],['toggle','Phát / dừng',''],['fwd','Tiến 10 giây','']]
+  .map(([a,t])=>`<span class="pb" tabindex="0" data-act="${a}" title="${t}">${a==='toggle'?ICON.pause:ICON[a]}</span>`).join('');
+let hls=null,hudT=null,toastT=null,lastSave=0,seekAcc=0,seekT=null;
+const V=()=>$('#v');
+const ctlEl=a=>document.querySelector(a==='bar'?'#pbar':`#player [data-act="${a}"]`);
+function focusCtl(a){const t=ctlEl(a);if(t)t.focus({preventScroll:true});}
+function inCtl(){const a=document.activeElement;return !!(a&&a.dataset&&a.dataset.act!==undefined&&a.closest('#bot,#top'));}
+function hud(sticky){
+  $('#top').classList.remove('hide');$('#bot').classList.remove('hide');clearTimeout(hudT);
+  if(!sticky)hudT=setTimeout(()=>hideHud(),5000);
+}
+function hideHud(force){
+  const v=V();if(!$('#pset').hidden)return;if(!force&&v.paused&&!v.hidden)return;
+  $('#top').classList.add('hide');$('#bot').classList.add('hide');
+  const a=document.activeElement;if(a&&a.blur)a.blur();
+}
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.remove('hide');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.add('hide'),900);}
+function updateBar(){
+  const v=V(),p=v.duration?Math.min(100,v.currentTime/v.duration*100):0;
+  $('#pfill').style.width=p+'%';$('#pknob').style.left=p+'%';$('#ptime').textContent=fmt(v.currentTime);
+}
+function ui(){
+  const v=V(),s=EPS[SV],n=s?s.server_data.length:0;
+  const t=ctlEl('toggle');if(t)t.innerHTML=v.paused?ICON.play:ICON.pause;
+  ctlEl('prev').classList.toggle('off',EI<=0);ctlEl('next').classList.toggle('off',EI>=n-1);
+}
+const pkey=()=>`${M.slug}|${SV}|${EI}`;
+function applySpeed(){const v=V(),sp=store.get('speed',1);v.defaultPlaybackRate=sp;v.playbackRate=sp;}
+function mobFull(){
+  if(!MOBILE)return;
+  try{const el=document.documentElement;if(!document.fullscreenElement&&el.requestFullscreen)el.requestFullscreen().then(()=>{try{screen.orientation.lock('landscape').catch(()=>{});}catch(e){}}).catch(()=>{});}catch(e){}
+}
+function play(){
+  mobFull();
+  const s=EPS[SV];if(!s)return;const e=s.server_data[EI];if(!e)return;
+  const v=V(),emb=$('#emb');
+  stop(true);$('#player').hidden=false;updateBar();$('#pdur').textContent='00:00';
+  $('#ptitle').textContent='Phim: '+M.name;$('#pep').textContent=epName(e.name).toUpperCase();ui();hud();applySpeed();
+  store.set('last',{slug:M.slug,name:M.name,thumb:M.thumb_url||M.poster_url,bg:M.poster_url,ep:e.name,sv:SV,ei:EI});dirty=true;addHist(M,e.name);
+  const fallback=()=>{$('#spin').hidden=true;if(e.link_embed){v.hidden=true;emb.hidden=false;emb.src=e.link_embed;$('#pep').textContent='TRÌNH PHÁT DỰ PHÒNG · BẤM BACK ĐỂ THOÁT';hud(true);}else{$('#pep').textContent='KHÔNG PHÁT ĐƯỢC TẬP NÀY';hud(true);}};
+  if(!e.link_m3u8){fallback();return;}
+  v.hidden=false;emb.hidden=true;$('#spin').hidden=false;
+  if(window.Hls&&Hls.isSupported()){
+    hls=new Hls({maxBufferLength:40,enableWorker:true});hls.loadSource(e.link_m3u8);hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){if(d.type===Hls.ErrorTypes.NETWORK_ERROR)hls.startLoad();else fallback();}});
+    v.play().catch(()=>{});
+  }else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=e.link_m3u8;v.play().catch(()=>{});}
+  else fallback();
+}
+function stop(keep){
+  const v=V(),emb=$('#emb');
+  if(M&&v.currentTime>10)savePos();
+  if(hls){hls.destroy();hls=null;}
+  v.pause();v.removeAttribute('src');v.load();emb.src='about:blank';emb.hidden=true;$('#spin').hidden=true;$('#pset').hidden=true;
+  if(!keep)$('#player').hidden=true;
+}
+function savePos(){const vv=V();if(vv.duration&&M){const l=getL('hist');if(l[0]&&l[0].slug===M.slug){l[0].pct=Math.round(vv.currentTime/vv.duration*100);setL('hist',l);}}const p=store.get('pos',{});p[pkey()]=V().currentTime;const k=Object.keys(p);if(k.length>200)delete p[k[0]];store.set('pos',p);}
+function step(n){
+  const t=EPS[SV].server_data.length,i=EI+n;if(i<0||i>=t){toast(n>0?'Đây là tập cuối':'Đây là tập đầu');return;}
+  const a=document.activeElement,keep=inCtl()?a.dataset.act:null;
+  EI=i;play();if(keep)focusCtl(keep);
+}
+function seek(dir,rep){
+  const v=V();clearTimeout(seekT);const d=dir*(rep?30:10);seekAcc+=d;
+  v.currentTime=Math.max(0,Math.min(v.duration||1e9,v.currentTime+d));updateBar();
+  toast((seekAcc>0?'▶▶ +':'◀◀ ')+seekAcc+'s');hud();seekT=setTimeout(()=>seekAcc=0,1200);
+}
+function act(a){
+  const v=V();
+  if(a==='exit'){goBack();return;}
+  if(a==='settings'){openSet();return;}
+  if(a==='toggle'){v.paused?v.play():v.pause();}
+  else if(a==='back')seek(-1,false);
+  else if(a==='fwd')seek(1,false);
+  else if(a==='prev')step(-1);
+  else if(a==='next')step(1);
+  hud();
+}
+function openSet(){
+  const s=$('#pset'),sp=store.get('speed',1);
+  const sv=EPS.length>1?'<div class="sh">Server</div>'+EPS.map((x,i)=>`<span class="opt${i===SV?' sel':''}" tabindex="0" data-set="sv" data-v="${i}">${esc(x.server_name)}</span>`).join(''):'';
+  s.innerHTML=sv+'<div class="sh">Tốc độ phát</div>'+[0.75,1,1.25,1.5,2].map(x=>`<span class="opt${x===sp?' sel':''}" tabindex="0" data-set="sp" data-v="${x}">${x}x</span>`).join('');
+  s.hidden=false;hud(true);(s.querySelector('[data-set=sp].sel')||s.querySelector('.opt')).focus({preventScroll:true});
+}
+function closeSet(){$('#pset').hidden=true;hud();focusCtl('settings');}
+function pick(el){
+  const x=el.dataset.v;
+  if(el.dataset.set==='sp'){const n=+x;store.set('speed',n);applySpeed();$('#pset').querySelectorAll('[data-set=sp]').forEach(o=>o.classList.toggle('sel',o===el));toast(n+'x');}
+  else{SV=+x;EI=Math.min(EI,EPS[SV].server_data.length-1);$('#pset').hidden=true;play();}
+}
+function settingsKey(e){
+  const k=e.key,opts=[...$('#pset').querySelectorAll('.opt')],i=opts.indexOf(document.activeElement);
+  if(isBack(e)||k==='Backspace'||k==='ArrowLeft'){e.preventDefault();closeSet();return;}
+  if(k==='ArrowDown'){e.preventDefault();opts[Math.min(opts.length-1,i+1)].focus({preventScroll:true});}
+  else if(k==='ArrowUp'){e.preventDefault();opts[Math.max(0,i-1)].focus({preventScroll:true});}
+  else if(k==='Enter'||k===' '){e.preventDefault();pick(document.activeElement);}
+}
+function playerKey(e){
+  if(!$('#pset').hidden){settingsKey(e);return;}
+  const v=V(),k=e.key,a=document.activeElement,ctl=inCtl(),cur=ctl?a.dataset.act:null,onBar=cur==='bar';
+  if(isBack(e)||k==='Backspace'){e.preventDefault();if(ctl)hideHud(true);else goBack();return;}
+  if(k==='ArrowLeft'||k==='ArrowRight'){
+    e.preventDefault();const d=k==='ArrowRight'?1:-1;
+    if(ctl&&!onBar){const row=rowFor(cur),t=ctlEl(row[row.indexOf(cur)+d]);if(t)t.focus({preventScroll:true});hud();}
+    else seek(d,e.repeat);
+    return;
+  }
+  if(k==='ArrowUp'||k==='ArrowDown'){
+    e.preventDefault();hud();
+    if(!ctl){focusCtl('toggle');return;}
+    const row=rowFor(cur);
+    if(k==='ArrowUp'){if(row===R2)focusCtl('bar');else if(row===R1)focusCtl('exit');}
+    else{if(row===R0)focusCtl('bar');else if(row===R1)focusCtl('toggle');}
+    return;
+  }
+  if(k==='Enter'||k===' '||k==='MediaPlayPause'){
+    e.preventDefault();
+    if(ctl&&!onBar)act(cur);
+    else{v.paused?v.play():v.pause();toast(v.paused?'❚❚':'▶');hud();}
+    return;
+  }
+  if(k==='MediaPlay'){v.play();return;}
+  if(k==='MediaPause'){v.pause();return;}
+  if(k==='MediaTrackNext'){step(1);return;}
+  if(k==='MediaTrackPrevious'){step(-1);return;}
+  if(k==='MediaFastForward'){seek(1,false);return;}
+  if(k==='MediaRewind'){seek(-1,false);return;}
+  hud();
+}
+(function bind(){
+  const v=V();
+  v.addEventListener('ended',()=>{const p=store.get('pos',{});delete p[pkey()];store.set('pos',p);if(EI+1<EPS[SV].server_data.length)step(1);else{stop();renderDetail();}});
+  v.addEventListener('loadedmetadata',()=>{applySpeed();$('#pdur').textContent=fmt(v.duration);const p=store.get('pos',{})[pkey()];if(p>10&&p<v.duration-30){v.currentTime=p;toast('Tiếp tục từ '+fmt(p));}});
+  v.addEventListener('timeupdate',()=>{updateBar();if(Date.now()-lastSave>5000&&v.currentTime>10){lastSave=Date.now();savePos();}});
+  v.addEventListener('waiting',()=>$('#spin').hidden=false);
+  v.addEventListener('playing',()=>{$('#spin').hidden=true;});
+  v.addEventListener('canplay',()=>$('#spin').hidden=true);
+  v.addEventListener('play',()=>{ui();hud();});
+  v.addEventListener('pause',()=>{ui();hud(true);});
+  v.addEventListener('click',()=>{v.paused?v.play():v.pause();});
+  $('#pbar').addEventListener('click',e=>{const r=$('#pbar').getBoundingClientRect();if(v.duration){v.currentTime=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*v.duration;updateBar();hud();}});
+  $('#player').addEventListener('mousemove',()=>hud());
+})();
+
+/* ---------- bàn phím ảo (dùng chung cho tìm kiếm và nhập liệu) ---------- */
+let kq='',caps=false,kbO=null,kbBack=null;
+const LET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),DIG='0123456789'.split(''),SYM='.@_-!'.split('');
+function kbBuild(){
+  if(MOBILE){$('#keys').innerHTML='';$('#acts').innerHTML='<span class="key go" tabindex="0" data-k="GO">'+esc(kbO.go||'Xong')+'</span><span class="key glass" tabindex="0" data-k="CLOSE">Đóng</span>';return;}
+  const ks=kbO.numeric?DIG:[...LET,...DIG,...SYM];
+  $('#keys').innerHTML=ks.map(k=>`<span class="key glass" tabindex="0" data-k="${esc(k)}">${/[A-Z]/.test(k)&&!caps?k.toLowerCase():esc(k)}</span>`).join('');
+  $('#acts').innerHTML=(kbO.numeric?'':'<span class="key glass" tabindex="0" data-k="CAPS">Aa</span><span class="key glass" tabindex="0" data-k="SPACE">Dấu cách</span>')+'<span class="key glass" tabindex="0" data-k="DEL">Xóa</span><span class="key go" tabindex="0" data-k="GO">'+esc(kbO.go||'Xong')+'</span><span class="key glass" tabindex="0" data-k="CLOSE">Đóng</span>';
+}
+function kbOpen(o){
+  kbO=o;kq=o.value||'';caps=false;kbBack=document.activeElement;kbBuild();$('#kb').hidden=false;
+  const inp=$('#kbin');
+  if(MOBILE){$('#kbq').hidden=true;$('#keys').hidden=true;inp.hidden=false;inp.type=o.mask?'password':(o.numeric?'tel':'text');inp.inputMode=o.numeric?'numeric':'text';inp.placeholder=o.title||'';inp.maxLength=o.max||100;inp.value=kq;setTimeout(()=>inp.focus(),60);return;}
+  $('#kbq').hidden=false;$('#keys').hidden=false;inp.hidden=true;kbRender();
+  const f=$('#keys .key');if(f)f.focus({preventScroll:true});
+}
+function kbClose(){$('#kb').hidden=true;const b=kbBack&&kbBack.isConnected?kbBack:$('#sbtn');if(b)b.focus({preventScroll:true});}
+function kbRender(){const e=$('#kbq');e.textContent=kq?(kbO.mask?'•'.repeat(kq.length):kq):kbO.title;e.classList.toggle('empty',!kq);}
+function kbKey(k,raw){
+  if(k==='DEL')kq=kq.slice(0,-1);
+  else if(k==='SPACE'){if(kbO.numeric||!kbO.spaces)return;if(kq&&!kq.endsWith(' '))kq+=' ';}
+  else if(k==='CAPS'){caps=!caps;kbBuild();const c=$('#acts [data-k="CAPS"]');if(c)c.focus({preventScroll:true});return;}
+  else if(k==='CLOSE'){kbClose();return;}
+  else if(k==='GO'){if(MOBILE)kq=$('#kbin').value;const v=kq,o=kbO;kbClose();if(o.done)o.done(v);return;}
+  else{
+    let ch=raw?k:(/[A-Z]/.test(k)&&!caps?k.toLowerCase():k);
+    if(kbO.numeric&&!/[0-9]/.test(ch))return;
+    if(kbO.max&&kq.length>=kbO.max)return;
+    kq+=ch;
+  }
+  kbRender();
+}
+function openSearch(){kbOpen({title:'Nhập tên phim...',go:'Tìm',spaces:true,done:q=>{q=q.trim();if(q){stack.length=0;loadList('',q);}}});}
+
+/* ---------- Cá nhân: tài khoản, lịch sử, yêu thích ---------- */
+// Đặt địa chỉ máy chủ (có /qr/approve và /qr/status) để đăng nhập bằng mã QR thật. Để trống = chế độ thử trên thiết bị.
+const AUTH_API=(new URLSearchParams(location.search).get('api')||'').replace(/\/+$/,'');
+const UN=/^[a-z0-9_.]{3,20}$/;
+const PERSON='<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+let ME=store.get('session',null);
+const users=()=>store.get('users',{});
+if(ME&&!users()[ME])ME=null;
+const lkey=k=>'u:'+(ME||'guest')+':'+k;
+const getL=k=>store.get(lkey(k),[]);
+const setL=(k,v)=>store.set(lkey(k),v);
+const isFav=slug=>getL('fav').some(x=>x.slug===slug);
+const rec=m=>({slug:m.slug,name:m.name,origin_name:m.origin_name,year:m.year,quality:m.quality,lang:m.lang,episode_current:m.episode_current,poster_url:m.poster_url,thumb_url:m.thumb_url});
+function addHist(m,ep){
+  const l=getL('hist').filter(x=>x.slug!==m.slug);
+  l.unshift(Object.assign(rec(m),{ep:ep,sv:SV,ei:EI,t:Date.now()}));
+  setL('hist',l.slice(0,40));
+}
+const HEART='<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+function favBtn(slug){const on=isFav(slug);return `<span class="hb fav${on?' on':''}" tabindex="0" id="favbtn">${HEART}<span>${on?'Đã yêu thích':'Yêu thích'}</span></span>`;}
+function updateFavUI(){
+  const apply=(el,slug)=>{if(!el)return;const on=!!slug&&isFav(slug);el.classList.toggle('on',on);const sp=el.querySelector('span');if(sp)sp.textContent=on?'Đã yêu thích':'Yêu thích';};
+  apply($('[data-h="fav"]'),heroSlug);apply($('#favbtn'),M&&M.slug);
+}
+let gT=null;
+function msg(t){const e=$('#gtoast');e.textContent=t;e.hidden=false;clearTimeout(gT);gT=setTimeout(()=>e.hidden=true,2200);}
+async function toggleFav(slug,m){
+  if(!m){const j=await detail(slug);if(!j||!j.movie){msg('Không thể lưu phim này');return;}m=j.movie;}
+  let l=getL('fav');const had=l.some(x=>x.slug===slug);
+  l=had?l.filter(x=>x.slug!==slug):[rec(m)].concat(l);setL('fav',l);
+  msg(had?'Đã bỏ khỏi yêu thích':'Đã thêm vào yêu thích');updateFavUI();
+}
+async function sha(str){
+  if(window.crypto&&crypto.subtle&&window.TextEncoder){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+  let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return 'f'+(h>>>0).toString(16);
+}
+function mergeGuest(phone){
+  ['fav','hist'].forEach(k=>{const a=store.get('u:'+phone+':'+k,[]),g=store.get('u:guest:'+k,[]);if(!a.length&&g.length)store.set('u:'+phone+':'+k,g);});
+}
+function updateAvatar(){
+  const b=$('#abtn');
+  if(ME){const u=users()[ME]||{},n=String(u.name||ME).trim();b.classList.add('has');b.style.background=avBg(typeof u.av==='number'?u.av:0);b.innerHTML='<span class="ini">'+avInner(u,n)+'</span>';}
+  else{b.classList.remove('has');b.style.background='';b.innerHTML=PERSON;}
+}
+function openMe(){stack.length=0;show('me');setNav('');const mt=$('.tab[data-tab="me"]');if(mt)mt.classList.add('on');renderMe();$('#me').scrollTop=0;const f=$('#me [tabindex]');if(f)f.focus({preventScroll:true});}
+function renderMe(){
+  const u=ME?(users()[ME]||{}):null,name=u?(u.name||ME):'Khách';
+  $('#meav').innerHTML=ME?avInner(u,name):PERSON;$('#meav').style.background=ME?avBg(typeof u.av==='number'?u.av:0):'';
+  $('#mename').textContent=name;
+  $('#mesub').textContent=ME?('@'+ME+' · dữ liệu lưu trên thiết bị này'):'Bạn đang xem với tư cách khách. Đăng nhập để có danh sách riêng.';
+  $('#mebtns').innerHTML=ME?'<span class="hb" tabindex="0" data-m="avatar">Đổi avatar</span><span class="hb" tabindex="0" data-m="logout">Đăng xuất</span>':'<span class="hb main" tabindex="0" data-m="login">Đăng nhập</span><span class="hb" tabindex="0" data-m="register">Đăng ký</span><span class="hb" tabindex="0" data-m="qr">Đăng nhập bằng điện thoại</span>';
+  const hist=getL('hist').map(h=>Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')})),fav=getL('fav');
+  $('#histrow').innerHTML=hist.length?hist.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có lịch sử xem. Phim bạn xem sẽ hiện ở đây.</div>';
+  $('#favrow').innerHTML=fav.length?fav.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có phim yêu thích. Chọn nút Yêu thích ở trang phim.</div>';
+}
+function meAction(m){
+  if(m==='logout'){ME=null;store.set('session',null);updateAvatar();updateFavUI();renderMe();msg('Đã đăng xuất');const f=$('#me [tabindex]');if(f)f.focus({preventScroll:true});}
+  else openAuth(m);
+}
+/* đăng nhập / đăng ký / mã điện thoại */
+let AM='login',F={},OT=null,authBack=null;
+function openAuth(mode){authBack=document.activeElement;F={};OT=null;AM=mode;$('#auth').hidden=false;if(mode==='qr')qrStart();renderAuth('#abody [tabindex]');}
+function closeAuth(){qrStop();$('#auth').hidden=true;const b=authBack&&authBack.isConnected?authBack:$('#abtn');if(b)b.focus({preventScroll:true});}
+function authMode(m){qrStop();AM=m;OT=null;if(m==='qr')qrStart();renderAuth('[data-am="'+m+'"]');}
+/* mã QR đăng nhập */
+let QRS=null;
+function qrStop(){if(QRS){clearInterval(QRS.timer);QRS=null;}}
+function qrSvg(text){
+  const q=new QRLib.QRCode(-1,QRLib.M);q.addData(text);q.make();
+  const n=q.getModuleCount(),m=q.modules;let d='';
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m[r][c])d+='M'+c+' '+r+'h1v1h-1z';
+  return `<svg viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><path d="${d}" fill="#000"/></svg>`;
+}
+function qrStart(){
+  qrStop();
+  const b=new Uint8Array(12);if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(b);else for(let i=0;i<12;i++)b[i]=Math.floor(Math.random()*256);
+  const token=Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
+  QRS={token:token,exp:Date.now()+180000,timer:setInterval(qrTick,2000)};
+  QRS.url=AUTH_API?AUTH_API+'/qr/approve?token='+token:'flixtv-demo://login?token='+token;
+}
+async function qrTick(){
+  if(!QRS||AM!=='qr'||$('#auth').hidden)return;
+  if(Date.now()>QRS.exp){qrStop();renderAuth('[data-qr="new"]');return;}
+  const left=Math.ceil((QRS.exp-Date.now())/1000),e=$('#qrleft');if(e)e.textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');
+  if(!AUTH_API)return;
+  try{
+    const t=QRS.token,r=await fetch(AUTH_API+'/qr/status?token='+t),j=await r.json();
+    if(QRS&&QRS.token===t&&j&&j.status==='ok'&&(j.user||j.phone)){qrFinish(String(j.user||j.phone).toLowerCase(),j.name);}
+  }catch(e){}
+}
+function qrFinish(phone,name){
+  const us=users();
+  if(!us[phone]){us[phone]={name:name||('Người dùng '+phone.slice(-4))};store.set('users',us);mergeGuest(phone);}
+  signIn(phone);
+}
+/* avatar */
+const AV_I={
+  star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  bolt:'<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>',
+  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>',
+  smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14c1 1.6 2.2 2.3 3.5 2.3s2.5-.7 3.5-2.3"/><path d="M9 9.5h.01M15 9.5h.01"/>',
+  film:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4"/>',
+  cat:'<path d="M5 20V8l3.5 2.5h7L19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M9.5 14h.01M14.5 14h.01M11 17.2c.6.5 1.4.5 2 0"/>',
+  rocket:'<path d="M12 3c3 2 5 5.5 5 9l-2 3H9l-2-3c0-3.500 2-7 5-9z"/><circle cx="12" cy="10" r="1.6"/><path d="M9 15l-2.5 4M15 15l2.5 4"/>',
+  crown:'<path d="M4 18l-1-10 5 4 4-7 4 7 5-4-1 10z"/>'
+};
+const AVATARS=[
+  ['#0a7bff','#00229a',null],['#ff6a3d','#c2185b','star'],['#12c2a1','#0a6f9b','smile'],['#8e54e9','#3a1c9b','moon'],['#ffb347','#e55d00','bolt'],
+  ['#ff5470','#9b1b4d','heart'],['#2dd4bf','#0b5d4b','film'],['#6ee7b7','#1d7a50','cat'],['#60a5fa','#1e3a8a','rocket'],['#f472b6','#6d28d9','crown']
+];
+function avBg(i){const a=AVATARS[i>=0&&i<AVATARS.length?i:0];return `linear-gradient(135deg,${a[0]},${a[1]})`;}
+function avInner(u,name){
+  const i=u&&typeof u.av==='number'?u.av:0,a=AVATARS[i]||AVATARS[0];
+  return a[2]?`<svg viewBox="0 0 24 24">${AV_I[a[2]]}</svg>`:esc(String(name||'?').charAt(0).toUpperCase());
+}
+function setAvatar(i){
+  const us=users();if(!ME||!us[ME])return;us[ME].av=i;store.set('users',us);
+  updateAvatar();if(curView()==='me')renderMe();closeAuth();msg('Đã đổi avatar');
+}
+function renderAuth(fs){
+  const fld=(k,l,mask)=>`<div class="field glass" tabindex="0" data-fld="${k}"><span class="fl">${l}</span><span class="fv">${F[k]?esc(mask?'•'.repeat(F[k].length):F[k]):'<i>Nhấn OK để nhập</i>'}</span></div>`;
+  const btn=(a,t,main)=>`<span class="hb${main?' main':''}" tabindex="0" data-asub="${a}">${t}</span>`;
+  let body='';
+  if(AM==='login')body=fld('user','Tên đăng nhập')+fld('pass','Mật khẩu',1)+btn('login','Đăng nhập',1);
+  else if(AM==='register')body=fld('name','Tên hiển thị')+fld('user','Tên đăng nhập')+fld('pass','Mật khẩu (từ 6 ký tự)',1)+fld('pass2','Nhập lại mật khẩu',1)+btn('register','Tạo tài khoản',1);
+  else if(AM==='qr'){
+    if(QRS){
+      const left=Math.max(0,Math.ceil((QRS.exp-Date.now())/1000));
+      body='<div class="qrwrap"><div class="qrbox">'+qrSvg(QRS.url)+'</div><div class="qrside"><div class="ainfo">Mở camera trên điện thoại, quét mã và bấm xác nhận. TV sẽ tự đăng nhập.</div><div class="qrmeta">Mã hết hạn sau <b id="qrleft">'+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'</b></div>'+(AUTH_API?'':'<div class="qrmeta">Chế độ thử: chưa có máy chủ nên điện thoại chưa quét đăng nhập được.</div>')+'<div style="margin-top:1rem">'+btn('qrnew','Làm mới mã')+(AUTH_API?'':btn('qrdemo','Giả lập đã quét',1))+'</div></div></div>';
+    }else body='<div class="ainfo">Mã QR đã hết hạn.</div><span class="hb main" tabindex="0" data-qr="new">Tạo mã mới</span>';
+  }
+  else if(AM==='avatar'){
+    const us=users(),u=us[ME]||{},cur=typeof u.av==='number'?u.av:0,nm=u.name||ME||'';
+    body='<div class="ainfo">Chọn avatar của bạn.</div><div class="avgrid">'+AVATARS.map((a,i)=>`<span class="avopt${i===cur?' sel':''}" tabindex="0" data-av="${i}" style="background:${avBg(i)}">${avInner({av:i},nm)}</span>`).join('')+'</div>';
+  }
+  const tabs=AM==='avatar'?[]:[['login','Đăng nhập'],['register','Đăng ký'],['qr','Quét mã QR']];
+  $('#atabs').innerHTML=(AM==='avatar'?'<div style="font-size:1.4rem;font-weight:700">Đổi avatar</div>':tabs.map(t=>`<span class="ep glass ${t[0]===AM?'cur':''}" tabindex="0" data-am="${t[0]}">${t[1]}</span>`).join(''))+'<span class="ep glass xbtn" tabindex="0" data-aclose="1">✕ Thoát</span>';
+  $('#abody').innerHTML=body;$('#aerr').textContent='';
+  const t=$('#auth '+fs)||$('#auth [data-fld]')||$('#auth [tabindex]');if(t)t.focus({preventScroll:true});
+}
+function editField(k){
+  const cfg={name:{title:'Tên hiển thị',spaces:true,max:24},user:{title:'Tên đăng nhập',max:20},pass:{title:'Mật khẩu',mask:true,max:32},pass2:{title:'Nhập lại mật khẩu',mask:true,max:32}}[k];
+  kbOpen(Object.assign({},cfg,{value:F[k]||'',go:'Xong',done:v=>{F[k]=v;renderAuth('[data-fld="'+k+'"]');}}));
+}
+function signIn(phone){
+  ME=phone;store.set('session',phone);closeAuth();updateAvatar();updateFavUI();
+  const u=users()[phone]||{};msg('Xin chào, '+(u.name||phone));
+  if(curView()==='me')renderMe();
+}
+async function authSubmit(a){
+  const err=t=>{$('#aerr').textContent=t;};
+  const user=String(F.user||'').trim().toLowerCase();
+  if(a==='login'){
+    if(!user)return err('Hãy nhập tên đăng nhập.');
+    if(!F.pass)return err('Hãy nhập mật khẩu.');
+    const u=users()[user];
+    if(!u||!u.hash||u.hash!==await sha(u.salt+F.pass))return err('Sai tên đăng nhập hoặc mật khẩu.');
+    return signIn(user);
+  }
+  if(a==='register'){
+    if(!(F.name||'').trim())return err('Hãy nhập tên hiển thị.');
+    if(!UN.test(user))return err('Tên đăng nhập gồm 3 đến 20 ký tự: chữ, số, dấu chấm hoặc gạch dưới.');
+    if((F.pass||'').length<6)return err('Mật khẩu cần ít nhất 6 ký tự.');
+    if(F.pass!==F.pass2)return err('Hai mật khẩu chưa khớp.');
+    const us=users();if(us[user])return err('Tên đăng nhập này đã có người dùng.');
+    const salt=Math.random().toString(36).slice(2)+Date.now().toString(36);
+    us[user]={name:F.name.trim(),salt:salt,hash:await sha(salt+F.pass)};store.set('users',us);mergeGuest(user);
+    return signIn(user);
+  }
+}
+
+/* ---------- định tuyến hành động ---------- */
+function goBack(){
+  if(!$('#kb').hidden){kbClose();return;}
+  if(!$('#auth').hidden){closeAuth();return;}
+  if(!$('#player').hidden){stop();renderDetail();return;}
+  const v=curView();
+  if(v==='detail'){
+    const p=stack.pop()||{v:'home'};show(p.v);
+    if(p.v==='home'){
+      const sl=p.el&&p.el.dataset&&p.el.dataset.slug;
+      if(dirty)renderRows();
+      let t=p.el&&p.el.isConnected?p.el:(sl&&$('#rows .card[data-slug="'+(window.CSS&&CSS.escape?CSS.escape(sl):sl)+'"]'))||$('[data-h="play"]');
+      t.focus({preventScroll:true});if(t.classList.contains('card')){ensureVisible(t);heroFill(t);}
+    }else if(p.v==='me'){const sl=p.el&&p.el.dataset&&p.el.dataset.slug;renderMe();const t=(sl&&$('#me .card[data-slug="'+(window.CSS&&CSS.escape?CSS.escape(sl):sl)+'"]'))||$('#me [tabindex]');if(t)t.focus({preventScroll:true});}else if(p.el&&p.el.isConnected)p.el.focus({preventScroll:true});else focusFirst($('#'+p.v));
+    return;
+  }
+  if(v==='list'||v==='me'){loadHome(true);}
+}
+function route(el){
+  if(el.dataset.k!==undefined){kbKey(el.dataset.k);return true;}
+  if(el.id==='sbtn'){openSearch();return true;}
+  if(el.id==='abtn'){openMe();return true;}
+  if(el.dataset.m!==undefined){meAction(el.dataset.m);return true;}
+  if(el.id==='clrhist'){setL('hist',[]);renderMe();msg('Đã xóa lịch sử xem');const f=$('#me [tabindex]');if(f)f.focus({preventScroll:true});return true;}
+  if(el.dataset.aclose!==undefined){closeAuth();return true;}
+  if(el.dataset.av!==undefined){setAvatar(+el.dataset.av);return true;}
+  if(el.dataset.qr!==undefined){qrStart();renderAuth('#abody [tabindex]');return true;}
+  if(el.dataset.am!==undefined){authMode(el.dataset.am);return true;}
+  if(el.dataset.fld!==undefined){editField(el.dataset.fld);return true;}
+  if(el.dataset.asub==='qrnew'){qrStart();renderAuth('[data-asub="qrnew"]');return true;}
+  if(el.dataset.asub==='qrdemo'){if(QRS)qrFinish('qr'+QRS.token.slice(0,8),'Khách QR');return true;}
+  if(el.dataset.asub!==undefined){authSubmit(el.dataset.asub);return true;}
+  if(el.id==='favbtn'){toggleFav(M.slug,M);return true;}
+  if(el.dataset.h==='fav'){if(heroSlug)toggleFav(heroSlug);return true;}
+  if(el.dataset.h==='play'){if(heroSlug)openDetail(heroSlug,true);return true;}
+  if(el.dataset.h==='info'){if(heroSlug)openDetail(heroSlug);return true;}
+  if(el.dataset.go){stack.length=0;if(el.dataset.go==='home')loadHome(false);else if(el.dataset.go==='the-loai')loadGenre('',false,'the-loai');else loadList(el.dataset.go);return true;}
+  if(el.dataset.genre!==undefined){loadGenre(el.dataset.genre,false,el.dataset.ct);return true;}
+  if(el.classList.contains('card')){openDetail(el.dataset.slug);return true;}
+  if(el.dataset.set!==undefined){pick(el);return true;}
+  if(el.dataset.act!==undefined){if(el.dataset.act!=='bar')act(el.dataset.act);return true;}
+  if(el.dataset.cf!==undefined){loadList('hoat-hinh','',false,el.dataset.cf);return true;}
+  if(el.dataset.rowgo!==undefined){const g=el.dataset.rowgo.split(':');stack.length=0;if(g[1])loadGenre(g[1],false,g[0]);else loadList(g[0]);return true;}
+  if(el.dataset.tab==='me'){openMe();return true;}
+  if(el.id==='more'){if(L.kind==='genre')loadGenre(L.slug,true,L.type);else loadList(L.kind,L.q,true);return true;}
+  if(el.id==='playbtn'){play();return true;}
+  if(el.id==='backbtn'){goBack();return true;}
+  if(el.dataset.sv!==undefined){SV=+el.dataset.sv;EI=0;renderDetail();return true;}
+  if(el.dataset.ei!==undefined){EI=+el.dataset.ei;play();return true;}
+  return false;
+}
+document.addEventListener('wheel',e=>{
+  if(MOBILE)return;
+  const h=$('#home');if(h.hidden||!$('#player').hidden||!$('#kb').hidden||!$('#auth').hidden)return;
+  const w=$('#rowsWrap');if(w.contains(e.target))return;
+  w.scrollTop+=e.deltaY;
+},{passive:true});
+document.addEventListener('click',e=>{const t=e.target.closest('[tabindex]');if(t)route(t);});
+
+/* ---------- điều hướng bằng remote ---------- */
+function focusables(){
+  if(!$('#kb').hidden)return[...document.querySelectorAll('#kb [tabindex]')];
+  if(!$('#auth').hidden)return[...document.querySelectorAll('#auth [tabindex]')];
+  return[...document.querySelectorAll('#bar [tabindex], .view:not([hidden]) [tabindex]')].filter(e=>e.offsetParent!==null);
+}
+function move(dir){
+  const cur=document.activeElement,list=focusables(),home=!$('#home').hidden;
+  if(!cur||!list.includes(cur)){const f=(home&&$('[data-h="play"]'))||list[0];if(f)f.focus({preventScroll:true});return;}
+  if(home){
+    if(cur.classList.contains('card')&&dir==='ArrowUp'&&cur.closest('.row')&&cur.closest('.row').dataset.i==='0'){$('[data-h="play"]').focus({preventScroll:true});return;}
+    if(cur.dataset.h!==undefined&&dir==='ArrowDown'){const t=(lastCard&&lastCard.isConnected)?lastCard:$('#rows .card');if(t){t.focus({preventScroll:true});ensureVisible(t);}return;}
+  }
+  const c=cur.getBoundingClientRect(),cx=c.left+c.width/2,horiz=dir==='ArrowLeft'||dir==='ArrowRight';
+  let best=null,bs=1e9;
+  for(const e of list){
+    if(e===cur)continue;
+    const r=e.getBoundingClientRect(),x=r.left+r.width/2,dx=x-cx,dy=(r.top+r.height/2)-(c.top+c.height/2);
+    let p,s;
+    if(horiz){if(Math.abs(dy)>Math.max(c.height,r.height)*.6)continue;p=dir==='ArrowRight'?dx:-dx;if(p<=4)continue;s=Math.abs(dy);}
+    else{
+      if(r.right<0||r.left>innerWidth)continue;
+      p=dir==='ArrowDown'?dy:-dy;if(p<=4)continue;s=Math.abs(dx);
+    }
+    const sc=p+s*3;if(sc<bs){bs=sc;best=e;}
+  }
+  if(!best)return;
+  best.focus({preventScroll:true});
+  if(home){if(best.classList.contains('card')&&best.closest('#rows'))ensureVisible(best);}
+  else if(best.closest('#bar')){const vv=curView();if(vv)$('#'+vv).scrollTop=0;}
+  else best.scrollIntoView({block:'center',inline:'nearest'});
+}
+const isBack=e=>e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||e.key==='XF86Back'||e.keyCode===10009||e.keyCode===461||e.keyCode===27;
+document.addEventListener('keydown',e=>{
+  if(!$('#player').hidden){playerKey(e);return;}
+  if(!$('#kb').hidden&&MOBILE&&e.target&&e.target.id==='kbin'){if(e.key==='Enter'){e.preventDefault();kbKey('GO');}else if(e.key==='Escape'){kbClose();}return;}
+  if(!$('#kb').hidden){
+    if(e.key==='Escape'){e.preventDefault();kbClose();return;}
+    if(e.key==='Backspace'){e.preventDefault();kbKey('DEL');return;}
+    if(e.key.length===1&&/[a-z0-9 .@_!\-]/i.test(e.key)&&!e.ctrlKey&&!e.metaKey){e.preventDefault();kbKey(e.key===' '?'SPACE':e.key,true);return;}
+  }
+  if((e.key==='f'||e.key==='F')&&$('#kb').hidden&&$('#auth').hidden){toggleFs();return;}
+  if(e.key.startsWith('Arrow')){e.preventDefault();move(e.key);}
+  else if(e.key==='Enter'){const t=document.activeElement;if(t&&t.hasAttribute&&t.hasAttribute('tabindex')){e.preventDefault();route(t);}}
+  else if(isBack(e)||e.key==='Backspace'){e.preventDefault();goBack();}
+});
+updateAvatar();updateFavUI();(function(){const f=()=>document.body.classList.toggle('sc',Math.max($('#home').scrollTop,$('#list').scrollTop,$('#detail').scrollTop,$('#me').scrollTop)>180);['home','list','detail','me'].forEach(id=>$('#'+id).addEventListener('scroll',f,{passive:true}));})();
+loadHome(true);
+</script>
+</body>
+</html>
