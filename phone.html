@@ -248,7 +248,7 @@ html.mobile{font-size:16px}
 .mobile .pb{width:3rem;height:3rem}.mobile #ctl .pill{padding:.6rem .75rem;font-size:.72rem}
 .mobile #cbtns{gap:.5rem}
 .mobile #pset{top:calc(env(safe-area-inset-top,0px) + 4.8rem);right:14px;width:min(20rem,calc(100vw - 28px))}
-.mobile .qrtab,.mobile [data-am="qr"],.mobile [data-m="qr"]{display:none!important}
+.tvscan{width:100%;border-radius:1rem;margin-top:.8rem;background:#000;max-height:14rem;object-fit:cover}
 /* ===== Điện thoại: kiểu ứng dụng xem phim (banner lớn, hàng poster dọc, thanh tab dưới) ===== */
 .chev{display:none}
 .playic{position:absolute;left:50%;top:50%;width:2.6rem;height:2.6rem;margin:-1.3rem;border-radius:50%;border:.14rem solid #fff;background:rgba(0,0,0,.28)}
@@ -369,7 +369,7 @@ html.mobile{font-size:16px}
 
 <div id="kb" hidden>
   <div id="kbq" class="glass empty">Nhập tên phim...</div>
-  <input id="kbin" hidden autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+  <input id="kbin" tabindex="0" hidden autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
   <div id="keys"></div>
   <div id="acts"></div>
 </div>
@@ -1673,11 +1673,11 @@ function detectMobile(){MOBILE=true;document.documentElement.classList.add('mobi
 function fit(){detectMobile();if(MOBILE){APP.style.transform='';return;}const sc=Math.min(innerWidth/1920,innerHeight/1080);APP.style.transform='translate('+(innerWidth-1920*sc)/2+'px,'+(innerHeight-1080*sc)/2+'px) scale('+sc+')';}
 fit();addEventListener('resize',fit);
 function toggleFs(){const d=document,el=d.documentElement;if(d.fullscreenElement){d.exitFullscreen();}else if(el.requestFullscreen){el.requestFullscreen().catch(()=>{});}}
-const ROWGO=['phim-bo','phim-le','','quoc-gia:au-my','quoc-gia:han-quoc','quoc-gia:trung-quoc','quoc-gia:nhat-ban','quoc-gia:viet-nam','phim-bo','phim-le','hoat-hinh','tv-shows'];
+const ROWGO=['phim-le','phim-bo','','quoc-gia:au-my','quoc-gia:han-quoc','quoc-gia:trung-quoc','quoc-gia:nhat-ban','quoc-gia:viet-nam','phim-bo','phim-le','hoat-hinh','tv-shows'];
 const Q='?page=1&limit=20',QV='?page=1&limit=20&sort_field=view&sort_type=desc';
 const ROWS=[
-  ['Phim mới nhất','/danh-sach/phim-moi-cap-nhat?page=1'],
   ['Phim nổi bật','/v1/api/danh-sach/phim-le'+QV],
+  ['Phim mới nhất','/danh-sach/phim-moi-cap-nhat?page=1'],
   ['Top 10 phim','/v1/api/danh-sach/phim-bo'+QV,'top'],
   ['Phim Âu Mỹ','/v1/api/quoc-gia/au-my'+Q],
   ['Phim Hàn Quốc','/v1/api/quoc-gia/han-quoc'+Q],
@@ -1757,8 +1757,8 @@ function focusFirst(root){const e=root.querySelector('[tabindex]');if(e)e.focus(
 let ROWDATA=null,dirty=false;
 function renderRows(){
   const rows=[],hist=getL('hist').slice(0,12);
-  if(hist.length)rows.push({title:'Xem tiếp',html:hist.map(h=>cardHTML(Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')}),0,true)).join('')});
   ROWDATA.forEach(r=>rows.push({title:r.title,go:r.go,html:r.items.map((m,i)=>cardHTML(m,r.top?i+1:0)).join('')}));
+  if(hist.length)rows.splice(MOBILE?0:1,0,{title:'Xem tiếp',html:hist.map(h=>cardHTML(Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')}),0,true)).join('')});
   $('#rows').innerHTML=rows.map((r,i)=>`<section class="row" data-i="${i}"><h2><span>${esc(r.title)}</span>${r.go?`<span class="chev" tabindex="0" data-rowgo="${esc(r.go)}">›</span>`:''}</h2><div class="track">${r.html}</div></section>`).join('');
   dirty=false;
 }
@@ -1769,7 +1769,7 @@ function ensureVisible(c){
 }
 async function loadHome(focusHero){
   show('home');setNav('home');
-  const focus=()=>{if(focusHero&&!MOBILE)$('[data-h="play"]').focus({preventScroll:true});};
+  const focus=()=>{if(focusHero&&!MOBILE){const c=$('#rows .card');(c||$('[data-h="play"]')).focus({preventScroll:true});}};
   if(ROWDATA){if(dirty)renderRows();focus();if(MOBILE)mbStart();return;}
   $('#rows').innerHTML='<div id="msg">Đang tải...</div>';
   const res=await Promise.allSettled(ROWS.map(r=>get(r[1])));
@@ -2022,8 +2022,9 @@ function playerKey(e){
 /* ---------- bàn phím ảo (dùng chung cho tìm kiếm và nhập liệu) ---------- */
 let kq='',caps=false,kbO=null,kbBack=null;
 const LET='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),DIG='0123456789'.split(''),SYM='.@_-!'.split('');
+const NKB=()=>MOBILE||!/[?&]vk\b/.test(location.search); /* bàn phím hệ thống (TV & điện thoại); thêm ?vk để dùng bàn phím trên màn hình */
 function kbBuild(){
-  if(MOBILE){$('#keys').innerHTML='';$('#acts').innerHTML='<span class="key go" tabindex="0" data-k="GO">'+esc(kbO.go||'Xong')+'</span><span class="key glass" tabindex="0" data-k="CLOSE">Đóng</span>';return;}
+  if(NKB()){$('#keys').innerHTML='';$('#acts').innerHTML='<span class="key go" tabindex="0" data-k="GO">'+esc(kbO.go||'Xong')+'</span><span class="key glass" tabindex="0" data-k="CLOSE">Đóng</span>';return;}
   const ks=kbO.numeric?DIG:[...LET,...DIG,...SYM];
   $('#keys').innerHTML=ks.map(k=>`<span class="key glass" tabindex="0" data-k="${esc(k)}">${/[A-Z]/.test(k)&&!caps?k.toLowerCase():esc(k)}</span>`).join('');
   $('#acts').innerHTML=(kbO.numeric?'':'<span class="key glass" tabindex="0" data-k="CAPS">Aa</span><span class="key glass" tabindex="0" data-k="SPACE">Dấu cách</span>')+'<span class="key glass" tabindex="0" data-k="DEL">Xóa</span><span class="key go" tabindex="0" data-k="GO">'+esc(kbO.go||'Xong')+'</span><span class="key glass" tabindex="0" data-k="CLOSE">Đóng</span>';
@@ -2031,7 +2032,7 @@ function kbBuild(){
 function kbOpen(o){
   kbO=o;kq=o.value||'';caps=false;kbBack=document.activeElement;kbBuild();$('#kb').hidden=false;
   const inp=$('#kbin');
-  if(MOBILE){$('#kbq').hidden=true;$('#keys').hidden=true;inp.hidden=false;inp.type=o.mask?'password':(o.numeric?'tel':'text');inp.inputMode=o.numeric?'numeric':'text';inp.placeholder=o.title||'';inp.maxLength=o.max||100;inp.value=kq;setTimeout(()=>inp.focus(),60);return;}
+  if(NKB()){$('#kbq').hidden=true;$('#keys').hidden=true;inp.hidden=false;inp.type=o.mask?'password':(o.numeric?'tel':'text');inp.inputMode=o.numeric?'numeric':'text';inp.placeholder=o.title||'';inp.maxLength=o.max||100;inp.value=kq;setTimeout(()=>inp.focus(),60);return;}
   $('#kbq').hidden=false;$('#keys').hidden=false;inp.hidden=true;kbRender();
   const f=$('#keys .key');if(f)f.focus({preventScroll:true});
 }
@@ -2042,7 +2043,7 @@ function kbKey(k,raw){
   else if(k==='SPACE'){if(kbO.numeric||!kbO.spaces)return;if(kq&&!kq.endsWith(' '))kq+=' ';}
   else if(k==='CAPS'){caps=!caps;kbBuild();const c=$('#acts [data-k="CAPS"]');if(c)c.focus({preventScroll:true});return;}
   else if(k==='CLOSE'){kbClose();return;}
-  else if(k==='GO'){if(MOBILE)kq=$('#kbin').value;const v=kq,o=kbO;kbClose();if(o.done)o.done(v);return;}
+  else if(k==='GO'){if(NKB())kq=$('#kbin').value;const v=kq,o=kbO;kbClose();if(o.done)o.done(v);return;}
   else{
     let ch=raw?k:(/[A-Z]/.test(k)&&!caps?k.toLowerCase():k);
     if(kbO.numeric&&!/[0-9]/.test(ch))return;
@@ -2104,6 +2105,7 @@ function renderMe(){
   $('#mename').textContent=name;
   $('#mesub').textContent=ME?('@'+ME+' · dữ liệu lưu trên thiết bị này'):'Bạn đang xem với tư cách khách. Đăng nhập để có danh sách riêng.';
   $('#mebtns').innerHTML=ME?'<span class="hb" tabindex="0" data-m="avatar">Đổi avatar</span><span class="hb" tabindex="0" data-m="logout">Đăng xuất</span>':'<span class="hb main" tabindex="0" data-m="login">Đăng nhập</span><span class="hb" tabindex="0" data-m="register">Đăng ký</span><span class="hb" tabindex="0" data-m="qr">Đăng nhập bằng điện thoại</span>';
+  if(MOBILE)$('#mebtns').insertAdjacentHTML('beforeend','<span class="hb" tabindex="0" data-m="qr">Đăng nhập TV</span>');
   const hist=getL('hist').map(h=>Object.assign({},h,{lang:'',episode_current:epName(h.ep||'')})),fav=getL('fav');
   $('#histrow').innerHTML=hist.length?hist.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có lịch sử xem. Phim bạn xem sẽ hiện ở đây.</div>';
   $('#favrow').innerHTML=fav.length?fav.map(m=>cardHTML(m)).join(''):'<div class="empty">Chưa có phim yêu thích. Chọn nút Yêu thích ở trang phim.</div>';
@@ -2114,9 +2116,9 @@ function meAction(m){
 }
 /* đăng nhập / đăng ký / mã điện thoại */
 let AM='login',F={},OT=null,authBack=null;
-function openAuth(mode){authBack=document.activeElement;F={};OT=null;AM=mode;$('#auth').hidden=false;if(mode==='qr')qrStart();renderAuth('#abody [tabindex]');}
-function closeAuth(){qrStop();$('#auth').hidden=true;const b=authBack&&authBack.isConnected?authBack:$('#abtn');if(b)b.focus({preventScroll:true});}
-function authMode(m){qrStop();AM=m;OT=null;if(m==='qr')qrStart();renderAuth('[data-am="'+m+'"]');}
+function openAuth(mode){authBack=document.activeElement;F={};OT=null;AM=mode;$('#auth').hidden=false;if(mode==='qr'&&!MOBILE)qrStart();renderAuth('#abody [tabindex]');}
+function closeAuth(){qrStop();tvScanStop();$('#auth').hidden=true;const b=authBack&&authBack.isConnected?authBack:$('#abtn');if(b)b.focus({preventScroll:true});}
+function authMode(m){qrStop();tvScanStop();AM=m;OT=null;if(m==='qr'&&!MOBILE)qrStart();renderAuth('[data-am="'+m+'"]');}
 /* mã QR đăng nhập */
 let QRS=null;
 function qrStop(){if(QRS){clearInterval(QRS.timer);QRS=null;}}
@@ -2179,23 +2181,26 @@ function renderAuth(fs){
   let body='';
   if(AM==='login')body=fld('user','Tên đăng nhập')+fld('pass','Mật khẩu',1)+btn('login','Đăng nhập',1);
   else if(AM==='register')body=fld('name','Tên hiển thị')+fld('user','Tên đăng nhập')+fld('pass','Mật khẩu (từ 6 ký tự)',1)+fld('pass2','Nhập lại mật khẩu',1)+btn('register','Tạo tài khoản',1);
+  else if(AM==='qr'&&MOBILE){
+    body='<div class="ainfo">Mở FlixTV trên TV, vào Cá nhân › Quét mã QR. Nhập mã hiện trên TV (hoặc quét mã QR bằng camera) để đăng nhập TV bằng tài khoản của bạn.</div>'+fld('tvcode','Mã trên TV')+btn('tvgo','Đăng nhập TV',1)+'<span class="hb" tabindex="0" data-asub="tvscan" style="margin-left:.6rem">Quét bằng camera</span><div id="tvcam"></div>'+(AUTH_API?'':'<div class="qrmeta">Chế độ thử: cần mở FlixTV từ máy chủ để đăng nhập TV.</div>');
+  }
   else if(AM==='qr'){
     if(QRS){
       const left=Math.max(0,Math.ceil((QRS.exp-Date.now())/1000));
-      body='<div class="qrwrap"><div class="qrbox">'+qrSvg(QRS.url)+'</div><div class="qrside"><div class="ainfo">Mở camera trên điện thoại, quét mã và bấm xác nhận. TV sẽ tự đăng nhập.</div><div class="qrmeta">Mã hết hạn sau <b id="qrleft">'+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'</b></div>'+(AUTH_API?'':'<div class="qrmeta">Chế độ thử: chưa có máy chủ nên điện thoại chưa quét đăng nhập được.</div>')+'<div style="margin-top:1rem">'+btn('qrnew','Làm mới mã')+(AUTH_API?'':btn('qrdemo','Giả lập đã quét',1))+'</div></div></div>';
+      body='<div class="qrwrap"><div class="qrbox">'+qrSvg(QRS.url)+'</div><div class="qrside"><div class="ainfo">Mở camera trên điện thoại, quét mã và bấm xác nhận. TV sẽ tự đăng nhập.</div><div class="qrmeta">Hoặc nhập mã trên điện thoại: <b>'+QRS.token.replace(/(.{4})/g,'$1 ').trim()+'</b></div><div class="qrmeta">Mã hết hạn sau <b id="qrleft">'+Math.floor(left/60)+':'+String(left%60).padStart(2,'0')+'</b></div>'+(AUTH_API?'':'<div class="qrmeta">Chế độ thử: chưa có máy chủ nên điện thoại chưa quét đăng nhập được.</div>')+'<div style="margin-top:1rem">'+btn('qrnew','Làm mới mã')+(AUTH_API?'':btn('qrdemo','Giả lập đã quét',1))+'</div></div></div>';
     }else body='<div class="ainfo">Mã QR đã hết hạn.</div><span class="hb main" tabindex="0" data-qr="new">Tạo mã mới</span>';
   }
   else if(AM==='avatar'){
     const us=users(),u=us[ME]||{},cur=typeof u.av==='number'?u.av:0,nm=u.name||ME||'';
     body='<div class="ainfo">Chọn avatar của bạn.</div><div class="avgrid">'+AVATARS.map((a,i)=>`<span class="avopt${i===cur?' sel':''}" tabindex="0" data-av="${i}" style="background:${avBg(i)}">${avInner({av:i},nm)}</span>`).join('')+'</div>';
   }
-  const tabs=AM==='avatar'?[]:[['login','Đăng nhập'],['register','Đăng ký'],['qr','Quét mã QR']];
+  const tabs=AM==='avatar'?[]:[['login','Đăng nhập'],['register','Đăng ký'],['qr',MOBILE?'Đăng nhập TV':'Quét mã QR']];
   $('#atabs').innerHTML=(AM==='avatar'?'<div style="font-size:1.4rem;font-weight:700">Đổi avatar</div>':tabs.map(t=>`<span class="ep glass ${t[0]===AM?'cur':''}" tabindex="0" data-am="${t[0]}">${t[1]}</span>`).join(''))+'<span class="ep glass xbtn" tabindex="0" data-aclose="1">✕ Thoát</span>';
   $('#abody').innerHTML=body;$('#aerr').textContent='';
   const t=$('#auth '+fs)||$('#auth [data-fld]')||$('#auth [tabindex]');if(t)t.focus({preventScroll:true});
 }
 function editField(k){
-  const cfg={name:{title:'Tên hiển thị',spaces:true,max:24},user:{title:'Tên đăng nhập',max:20},pass:{title:'Mật khẩu',mask:true,max:32},pass2:{title:'Nhập lại mật khẩu',mask:true,max:32}}[k];
+  const cfg={name:{title:'Tên hiển thị',spaces:true,max:24},user:{title:'Tên đăng nhập',max:20},pass:{title:'Mật khẩu',mask:true,max:32},pass2:{title:'Nhập lại mật khẩu',mask:true,max:32},tvcode:{title:'Mã trên TV',spaces:true,max:120}}[k];
   kbOpen(Object.assign({},cfg,{value:F[k]||'',go:'Xong',done:v=>{F[k]=v;renderAuth('[data-fld="'+k+'"]');}}));
 }
 function signIn(phone){
@@ -2203,8 +2208,27 @@ function signIn(phone){
   const u=users()[phone]||{};msg('Xin chào, '+(u.name||phone));
   if(curView()==='me')renderMe();
 }
+let TVS=null;
+function tvScanStop(){if(TVS){clearInterval(TVS.t);try{TVS.st.getTracks().forEach(x=>x.stop());}catch(e){}TVS=null;}const c=$('#tvcam');if(c)c.innerHTML='';}
+function tvToken(v){const m=String(v||'').match(/token=([0-9a-f]{24})/i);if(m)return m[1].toLowerCase();const h=String(v||'').toLowerCase().replace(/[^0-9a-f]/g,'');return h.length===24?h:'';}
+function tvGo(tok,err){
+  if(!AUTH_API)return err('Chế độ thử: cần mở FlixTV từ máy chủ để đăng nhập TV.');
+  location.href=AUTH_API+'/qr/approve?token='+tok;
+}
+async function tvScan(err){
+  tvScanStop();
+  if(!('BarcodeDetector' in window)||!navigator.mediaDevices)return err('Máy này chưa hỗ trợ quét trong ứng dụng. Hãy nhập mã hoặc dùng camera của điện thoại để quét mã trên TV.');
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}),v=document.createElement('video');
+    v.className='tvscan';v.srcObject=st;v.setAttribute('playsinline','');v.muted=true;await v.play();$('#tvcam').appendChild(v);
+    const det=new BarcodeDetector({formats:['qr_code']});
+    TVS={st:st,t:setInterval(async()=>{try{const r=await det.detect(v);if(r.length){const k=tvToken(r[0].rawValue);if(k){tvScanStop();tvGo(k,err);}}}catch(e){}},500)};
+  }catch(e){err('Không mở được camera. Hãy nhập mã trên TV.');}
+}
 async function authSubmit(a){
   const err=t=>{$('#aerr').textContent=t;};
+  if(a==='tvgo'){const k=tvToken(F.tvcode);if(!k)return err('Mã chưa đúng. Nhập đủ 24 ký tự hiện trên TV.');return tvGo(k,err);}
+  if(a==='tvscan')return tvScan(err);
   const user=String(F.user||'').trim().toLowerCase();
   if(a==='login'){
     if(!user)return err('Hãy nhập tên đăng nhập.');
@@ -2319,7 +2343,13 @@ function move(dir){
 const isBack=e=>e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||e.key==='XF86Back'||e.keyCode===10009||e.keyCode===461||e.keyCode===27;
 document.addEventListener('keydown',e=>{
   if(!$('#player').hidden){playerKey(e);return;}
-  if(!$('#kb').hidden&&MOBILE&&e.target&&e.target.id==='kbin'){if(e.key==='Enter'){e.preventDefault();kbKey('GO');}else if(e.key==='Escape'){kbClose();}return;}
+  if(!$('#kb').hidden&&NKB()&&e.target&&e.target.id==='kbin'){
+    if(e.key==='ArrowDown'&&!MOBILE){e.preventDefault();const g=$('#acts [data-k="GO"]');if(g)g.focus({preventScroll:true});return;}
+    if(e.key==='ArrowUp'||e.key==='ArrowDown'){if(!MOBILE){e.preventDefault();move(e.key);}return;}
+    if(e.key==='Enter'){if(MOBILE){e.preventDefault();kbKey('GO');}return;}
+    if(isBack(e)){e.preventDefault();kbClose();}
+    return;
+  }
   if(!$('#kb').hidden){
     if(e.key==='Escape'){e.preventDefault();kbClose();return;}
     if(e.key==='Backspace'){e.preventDefault();kbKey('DEL');return;}
