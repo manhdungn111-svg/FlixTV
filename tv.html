@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>FlixTV - TV</title>
 <style>
@@ -1575,8 +1575,20 @@ tick();setInterval(tick,20000);
 const APP=$('#app');
 let MOBILE=false;
 function detectMobile(){MOBILE=false;}
-function fit(){detectMobile();if(MOBILE){APP.style.transform='';return;}const sc=Math.min(innerWidth/1920,innerHeight/1080);APP.style.transform='translate('+(innerWidth-1920*sc)/2+'px,'+(innerHeight-1080*sc)/2+'px) scale('+sc+')';}
-fit();addEventListener('resize',fit);
+const ZM=parseFloat((location.search.match(/[?&]z=([0-9.]+)/)||[])[1])||1; /* ?z=0.8 để thu nhỏ thủ công nếu TV bị tràn màn hình */
+function fit(){
+  detectMobile();if(MOBILE){APP.style.transform='';return;}
+  const de=document.documentElement,vv=window.visualViewport;
+  let W=Math.min(innerWidth||1920,de.clientWidth||1e5),H=Math.min(innerHeight||1080,de.clientHeight||1e5);
+  if(vv&&vv.width&&vv.height){W=Math.min(W,vv.width*(vv.scale||1));H=Math.min(H,vv.height*(vv.scale||1));}
+  if(window.FLIX_VP&&FLIX_VP.w>0&&FLIX_VP.h>0){W=FLIX_VP.w;H=FLIX_VP.h;} /* app Android báo đúng kích thước khung hiển thị */
+  W=Math.max(W,320);H=Math.max(H,180);
+  const sc=Math.min(W/1920,H/1080)*ZM;
+  APP.style.transform='translate('+(W-1920*sc)/2+'px,'+(H-1080*sc)/2+'px) scale('+sc+')';
+}
+fit();addEventListener('resize',fit);addEventListener('orientationchange',fit);addEventListener('load',fit);
+if(window.visualViewport)visualViewport.addEventListener('resize',fit);
+[150,600,1500,3500].forEach(t=>setTimeout(fit,t));
 function toggleFs(){const d=document,el=d.documentElement;if(d.fullscreenElement){d.exitFullscreen();}else if(el.requestFullscreen){el.requestFullscreen().catch(()=>{});}}
 const ROWGO=['phim-le','phim-bo','','quoc-gia:au-my','quoc-gia:han-quoc','quoc-gia:trung-quoc','quoc-gia:nhat-ban','quoc-gia:viet-nam','phim-bo','phim-le','hoat-hinh','tv-shows'];
 const Q='?page=1&limit=20',QV='?page=1&limit=20&sort_field=view&sort_type=desc';

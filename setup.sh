@@ -115,10 +115,20 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        s.setUseWideViewPort(false);
+        s.setLoadWithOverviewMode(false);
+        s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
+        s.setTextZoom(100);
+        web.setInitialScale(0);
         s.setAllowFileAccess(true);
         s.setAllowFileAccessFromFileURLs(true);
         s.setAllowUniversalAccessFromFileURLs(true);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageStarted(WebView v, String u, android.graphics.Bitmap f) { super.onPageStarted(v, u, f); pushSize(); }
+            @Override public void onPageFinished(WebView v, String u) { super.onPageFinished(v, u); pushSize(); }
+        });
+        web.addOnLayoutChangeListener((v, l, t, r, bt, ol, ot, orr, ob) -> pushSize());
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
@@ -138,6 +148,15 @@ public class MainActivity extends Activity {
         String q = SERVER_URL.isEmpty() ? "" : "?api=" + SERVER_URL;
         web.loadUrl("file:///android_asset/tv.html" + q);
         hideBars();
+    }
+
+    // Báo cho trang kích thước thật của khung hiển thị (đơn vị CSS) để tự co giãn đúng trên mọi TV.
+    private void pushSize() {
+        if (web == null || web.getWidth() == 0) return;
+        float d = getResources().getDisplayMetrics().density;
+        if (d <= 0) d = 1f;
+        int w = Math.round(web.getWidth() / d), h = Math.round(web.getHeight() / d);
+        web.evaluateJavascript("window.FLIX_VP={w:" + w + ",h:" + h + "};if(window.fit)fit();", null);
     }
 
     private void hideBars() {
