@@ -21,6 +21,11 @@ html,body{margin:0;height:100%;color:var(--fg);font-family:-apple-system,"SF Pro
 .lite .glass,.lite .hb,.lite .ibtn,.lite #clock,.lite .bd{box-shadow:none!important}
 .lite #rowsWrap,.lite .track,.lite #list,.lite #detail,.lite #me{scroll-behavior:auto!important;scroll-snap-type:none!important}
 .lite #bg{transition:none}
+.lite .view,.lite #home{scroll-behavior:auto!important}
+.lite .pw{transition:none!important}
+.lite .card:focus .pw{transform:none!important;box-shadow:0 0 0 .22rem var(--focus)!important}
+.lite .card .pw{border-width:0}
+.lite .grid .bds,.lite .grid .bd{-webkit-backdrop-filter:none;backdrop-filter:none}
 .lite .card,.lite .hb,.lite .ep,.lite .key{transition:transform .1s!important}
 .lite .glass{background:rgba(38,44,58,.92);-webkit-backdrop-filter:none;backdrop-filter:none}
 .lite .hb,.lite .ibtn,.lite #clock,.lite .bd,.lite #rowsWrap,.lite .rb,.lite .pill,.lite .pb,.lite #pset,.lite #toast{-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -1639,7 +1644,7 @@ function badges(m){
 }
 const cardHTML=(m,rank,land)=>{
   const port=MOBILE&&!land,src=img(port?(m.thumb_url||m.poster_url):(m.poster_url||m.thumb_url));
-  return `<div class="card${rank?' ranked':''}${land?' land':''}" tabindex="0" data-slug="${esc(m.slug)}" data-name="${esc(m.name)}" data-orig="${esc(m.origin_name||'')}" data-meta="${esc([m.year,m.episode_current,m.quality].filter(Boolean).join(' • '))}" data-bg="${esc(img(m.poster_url||m.thumb_url))}"><div class="pw"><img class="p" loading="lazy" src="${esc(src)}" alt="">${badges(m)}${land?'<span class="playic"></span>':''}${land&&m.pct?`<div class="prog"><i style="width:${Math.min(100,m.pct)}%"></i></div>`:''}</div><div class="t">${esc(m.name)}</div>${rank?`<span class="rank${rank>9?' two':''}">${rank}</span>`:''}</div>`;
+  return `<div class="card${rank?' ranked':''}${land?' land':''}" tabindex="0" data-slug="${esc(m.slug)}" data-name="${esc(m.name)}" data-orig="${esc(m.origin_name||'')}" data-meta="${esc([m.year,m.episode_current,m.quality].filter(Boolean).join(' • '))}" data-bg="${esc(img(m.poster_url||m.thumb_url))}"><div class="pw"><img class="p" loading="lazy" decoding="async" src="${esc(src)}" alt="">${badges(m)}${land?'<span class="playic"></span>':''}${land&&m.pct?`<div class="prog"><i style="width:${Math.min(100,m.pct)}%"></i></div>`:''}</div><div class="t">${esc(m.name)}</div>${rank?`<span class="rank${rank>9?' two':''}">${rank}</span>`:''}</div>`;
 };
 
 /* ---------- nền + thông tin phim bên trái ---------- */
@@ -1681,8 +1686,9 @@ function heroFill(c){
 document.addEventListener('focusin',e=>{
   const c=e.target.closest&&e.target.closest('.card');if(!c)return;
   clearTimeout(bgT);
-  if($('#home').contains(c)){lastCard=c;bgT=setTimeout(()=>heroFill(c),120);}
-  else bgT=setTimeout(()=>setBg(c.dataset.bg),200);
+  const lite=document.body.classList.contains('lite');
+  if($('#home').contains(c)){lastCard=c;bgT=setTimeout(()=>heroFill(c),lite?260:120);}
+  else if(!lite)bgT=setTimeout(()=>setBg(c.dataset.bg),200); /* chế độ nhẹ: không đổi ảnh nền toàn màn hình khi duyệt danh sách */
 });
 document.addEventListener('mouseover',e=>{const t=e.target.closest&&e.target.closest('[tabindex]');if(t&&t!==document.activeElement&&$('#kb').hidden&&$('#player').hidden)t.focus({preventScroll:true});});
 
